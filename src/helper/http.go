@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"io"
@@ -105,6 +106,16 @@ func HttpPayload(payload map[string]string) HttpOptions {
 	return HttpOptions{"payload", payload}
 }
 
+// which is used for POST method only
+func HttpPayloadText(payload string) HttpOptions {
+	return HttpOptions{"payloadText", payload}
+}
+
+// which is used for POST method only
+func HttpPayloadJson(payload interface{}) HttpOptions {
+	return HttpOptions{"payloadJson", payload}
+}
+
 func HttpWithRandomUA() HttpOptions {
 	return HttpOptions{"randomUA", true}
 }
@@ -178,6 +189,14 @@ func buildHttpRequest(method string, url string, options ...HttpOptions) (*http.
 				q.Add(k, v)
 			}
 			req.Body = ioutil.NopCloser(strings.NewReader(q.Encode()))
+		case "payloadText":
+			req.Body = ioutil.NopCloser(strings.NewReader(option.Value.(string)))
+		case "payloadJson":
+			jsonStr, err := json.Marshal(option.Value)
+			if err != nil {
+				return nil, nil, err
+			}
+			req.Body = ioutil.NopCloser(bytes.NewBuffer(jsonStr))
 		case "noRedirect":
 			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse

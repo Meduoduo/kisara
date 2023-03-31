@@ -26,7 +26,7 @@ func GetAvaliablePort() (int, error) {
 	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
-//https request post json data
+// https request post json data
 func HttpPostJson(url string, data interface{}) (int, string, error) {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -47,11 +47,12 @@ func HttpPostJson(url string, data interface{}) (int, string, error) {
 	return resp.StatusCode, string(body), nil
 }
 
-//https request get, data is a struct which will be converted to urlencoded query string
-//example:
-// type User struct {
-// 	Name string `json:"name"`
-// }
+// https request get, data is a struct which will be converted to urlencoded query string
+// example:
+//
+//	type User struct {
+//		Name string `json:"name"`
+//	}
 //
 // httpsGet("http://www.example.com?name=hello", &User{})
 func HttpGet(url string, data interface{}) (int, string, error) {

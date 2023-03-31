@@ -6,7 +6,9 @@ type Client struct {
 	// ClientIp
 	ClientIp string `json:"client_ip"`
 	// ClientPort
-	ClientPort string `json:"client_port"`
+	ClientPort int `json:"client_port"`
+	// Token
+	ClientToken string `json:"client_token"`
 }
 
 type ClientStatus struct {
