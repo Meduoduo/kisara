@@ -1,0 +1,15 @@
+[kisara]
+token = 1234567890 # this token will be used to authenticate client and master
+
+[kisaraClient]
+address = 127.0.0.1 # this address will be infered to master server, so that master could connect to this client
+port = 7373
+
+[kisaraMaster]
+address = 127.0.0.1 # for client, which master should it connect to
+port = 7474
+
+[takina]
+address = 127.0.0.1
+port = 7272
+token = 1234567890
