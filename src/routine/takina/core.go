@@ -54,7 +54,7 @@ var takina_address = ""
 var takina_port = 0
 var takina_token = ""
 
-func init() {
+func InitTakina() {
 	takina_address = helper.GetConfigString("takina.address")
 	if takina_address == "" {
 		log.Panic("takina_address is empty")

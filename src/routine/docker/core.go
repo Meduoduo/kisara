@@ -15,6 +15,7 @@ import (
 	log "github.com/Yeuoly/kisara/src/routine/log"
 	request "github.com/Yeuoly/kisara/src/routine/request"
 	takina "github.com/Yeuoly/kisara/src/routine/takina"
+	kisara_types "github.com/Yeuoly/kisara/src/types"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -29,28 +30,6 @@ type Docker struct {
 	Ctx    *context.Context
 }
 
-type Image struct {
-	Id           int    `json:"id"`
-	Uuid         string `json:"uuid"`
-	Name         string `json:"name"`
-	User         string `json:"user"`
-	LastUpdate   int    `json:"last_update"`
-	PortProtocol string `json:"port_protocol"`
-	VirtualSize  int64  `json:"virtual_size"`
-}
-
-type Container struct {
-	Id       string  `json:"id"`
-	Image    string  `json:"image"`
-	Uuid     string  `json:"uuid"`
-	Time     int     `json:"time"`
-	Owner    int     `json:"owner"`
-	HostPort string  `json:"host_port"`
-	Status   string  `json:"status"`
-	CPUUsage float64 `json:"cpu_usage"`
-	MemUsage float64 `json:"mem_usage"`
-}
-
 type portMapping struct {
 	ContainerInnerPort int    `json:"container_inner_port"`
 	Lport              int    `json:"lport"`
@@ -60,6 +39,7 @@ type portMapping struct {
 }
 
 var docker_version string
+var docker_dns string
 
 type containerMonitor struct {
 	ContainerId string
@@ -134,8 +114,14 @@ func attachMonitor(container_id string) {
 	}
 }
 
-func init() {
+func InitDocker() {
 	docker_version = "1.38"
+
+	docker_dns = helper.GetConfigString("kisara.dns")
+	if docker_dns == "" {
+		log.Panic("[docker] docker dns not set")
+	}
+
 	//关闭所有处于运行中的docker，并删除镜像
 	c := NewDocker()
 	cli, err := client.NewClientWithOpts(
@@ -202,8 +188,8 @@ func (c *Docker) Stop() {
 	c.Client.Close()
 }
 
-func DockerPullImage(cli *Docker, image_name string, event_callback func(message string)) (*Image, error) {
-	image := Image{
+func DockerPullImage(cli *Docker, image_name string, event_callback func(message string)) (*kisara_types.Image, error) {
+	image := kisara_types.Image{
 		Name: image_name,
 	}
 
@@ -234,7 +220,7 @@ func DockerPullImage(cli *Docker, image_name string, event_callback func(message
 	return &image, nil
 }
 
-//用于控制器启动子线程拉取镜像
+// 用于控制器启动子线程拉取镜像
 func HandleControllerRequestPullImage(request_id string, image_name string, port_protocol string, user string) {
 	docker := NewDocker()
 
@@ -261,8 +247,16 @@ func HandleControllerRequestPullImage(request_id string, image_name string, port
 	*/
 }
 
-func (c *Docker) CreateContainer(image *Image, uid int, port_protocol string, subnet string, module string, env_mount ...map[string]string) (*Container, error) {
+func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
 	log.Info("[docker] start launch container:" + image.Name)
+
+	// check if subnet exists
+	subnet_instance, err := c.GetNetworkByName(subnet_name)
+	if err != nil {
+		return nil, err
+	}
+
+	subnet_id := subnet_instance.ID
 
 	/*
 		date: 2022/11/19 author: Yeuoly
@@ -375,7 +369,7 @@ func (c *Docker) CreateContainer(image *Image, uid int, port_protocol string, su
 			},
 		},
 		&container.HostConfig{
-			//NetworkMode:  container.NetworkMode(networkMode),
+			NetworkMode:  container.NetworkMode(subnet_name),
 			PortBindings: port_map,
 			Mounts:       mounts,
 			Resources: container.Resources{
@@ -386,11 +380,12 @@ func (c *Docker) CreateContainer(image *Image, uid int, port_protocol string, su
 				//set max disk to 5G
 				BlkioWeight: 500,
 			},
+			DNS: []string{docker_dns},
 		},
 		&network.NetworkingConfig{
 			EndpointsConfig: map[string]*network.EndpointSettings{
 				"kisara": {
-					NetworkID: subnet,
+					NetworkID: subnet_id,
 				},
 			},
 		}, nil, uuid,
@@ -400,7 +395,7 @@ func (c *Docker) CreateContainer(image *Image, uid int, port_protocol string, su
 		return nil, err
 	}
 
-	container := Container{
+	container := kisara_types.Container{
 		Id:       resp.ID,
 		Image:    image.Name,
 		Owner:    uid,
@@ -441,33 +436,31 @@ func (c *Docker) CheckImageExist(image_name string) bool {
 	return false
 }
 
-func (c *Docker) LaunchTargetMachine(image_name string, port_protocol string, subnet string, uid int, module string) *Container {
-	image := &Image{
+func (c *Docker) LaunchTargetMachine(image_name string, port_protocol string, subnet_name string, uid int, module string) (*kisara_types.Container, error) {
+	image := &kisara_types.Image{
 		Name: image_name,
 		User: "root",
 	}
 
-	container, err := c.CreateContainer(image, uid, port_protocol, module, subnet)
+	container, err := c.CreateContainer(image, uid, port_protocol, subnet_name, module)
 	if err != nil {
 		log.Warn("[docker] create container failed: " + err.Error())
-		return nil
+		return nil, err
 	}
 
 	log.Info("[docker] launch target machine successfully: " + container.Id)
 
-	return container
+	return container, nil
 }
 
-func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, subnet string, env map[string]string) (*Container, error) {
-	image := &Image{
+func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, subnet_name string, env map[string]string) (*kisara_types.Container, error) {
+	image := &kisara_types.Image{
 		Name: image_name,
 		User: "root",
 	}
 
-	//
-
 	//创建容器并留下记录
-	container, err := c.CreateContainer(image, uid, port_protocols, subnet, "awd", env)
+	container, err := c.CreateContainer(image, uid, port_protocols, subnet_name, "awd", env)
 	if err != nil {
 		log.Warn("[docker] create AWD container failed: " + err.Error())
 		return nil, err
@@ -541,7 +534,7 @@ func (c *Docker) Exec(container_id string, cmd string) error {
 	return nil
 }
 
-func (c *Docker) ListContainer() (*[]*Container, error) {
+func (c *Docker) ListContainer() (*[]*kisara_types.Container, error) {
 	containers, err := c.Client.ContainerList(*c.Ctx, types.ContainerListOptions{
 		All: true,
 	})
@@ -550,10 +543,10 @@ func (c *Docker) ListContainer() (*[]*Container, error) {
 		return nil, err
 	}
 
-	var container_list []*Container
+	var container_list []*kisara_types.Container
 	for _, container := range containers {
 		owner_uid, _ := strconv.Atoi(container.Labels["owner_uid"])
-		container_list = append(container_list, &Container{
+		container_list = append(container_list, &kisara_types.Container{
 			Id:       container.ID,
 			Image:    container.Image,
 			Owner:    owner_uid,
@@ -567,7 +560,7 @@ func (c *Docker) ListContainer() (*[]*Container, error) {
 	return &container_list, nil
 }
 
-func (c *Docker) ListImage() (*[]*Image, error) {
+func (c *Docker) ListImage() (*[]*kisara_types.Image, error) {
 	images, err := c.Client.ImageList(*c.Ctx, types.ImageListOptions{
 		All: true,
 	})
@@ -575,9 +568,9 @@ func (c *Docker) ListImage() (*[]*Image, error) {
 		return nil, err
 	}
 
-	var image_list []*Image
+	var image_list []*kisara_types.Image
 	for _, image := range images {
-		current_image := &Image{}
+		current_image := &kisara_types.Image{}
 		current_image.Uuid = image.ID
 		if image.RepoTags != nil {
 			current_image.Name = image.RepoTags[0]
@@ -688,10 +681,10 @@ func (c *Docker) GetSyncMessage() string {
 }
 
 /*
-	InspectContainer will insepct to docker container and return some
-	information about the container like host_port, container status, etc.
+InspectContainer will insepct to docker container and return some
+information about the container like host_port, container status, etc.
 */
-func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*Container, error) {
+func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisara_types.Container, error) {
 	container, err := c.Client.ContainerInspect(*c.Ctx, container_id)
 	if err != nil {
 		return nil, err
@@ -708,7 +701,7 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*Cont
 		}
 	}
 
-	ret := &Container{
+	ret := &kisara_types.Container{
 		Id:       container.ID,
 		HostPort: container.Config.Labels["host_port"],
 		Status:   container.Config.Labels["status"],
@@ -722,10 +715,11 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*Cont
 }
 
 /*
-	Create a new docker virtual network, if the subnet has permission to access public network, public_access should be true.
+Create a new docker virtual network
 */
-func (c *Docker) CreateNetwork(subnet string, name string, public_access bool) error {
+func (c *Docker) CreateNetwork(subnet string, name string, host_join bool) error {
 	_, err := c.Client.NetworkCreate(*c.Ctx, name, types.NetworkCreate{
+		Driver:         "overlay",
 		CheckDuplicate: true,
 		IPAM: &network.IPAM{
 			Config: []network.IPAMConfig{
@@ -735,7 +729,9 @@ func (c *Docker) CreateNetwork(subnet string, name string, public_access bool) e
 			},
 		},
 		EnableIPv6: false,
-		Internal:   !public_access,
+		// if host_join is true, the host will join the network, otherwise the host will not join the network
+		Internal:   !host_join,
+		Attachable: true,
 	})
 	if err != nil {
 		return err
@@ -744,10 +740,10 @@ func (c *Docker) CreateNetwork(subnet string, name string, public_access bool) e
 }
 
 /*
-	Delete a docker virtual network
+Delete a docker virtual network
 */
-func (c *Docker) DeleteNetwork(subnet string) error {
-	err := c.Client.NetworkRemove(*c.Ctx, subnet)
+func (c *Docker) DeleteNetwork(network_id string) error {
+	err := c.Client.NetworkRemove(*c.Ctx, network_id)
 	if err != nil {
 		return err
 	}
@@ -755,7 +751,7 @@ func (c *Docker) DeleteNetwork(subnet string) error {
 }
 
 /*
-	List all docker virtual network
+List all docker virtual network
 */
 func (c *Docker) ListNetwork() ([]types.NetworkResource, error) {
 	networks, err := c.Client.NetworkList(context.Background(), types.NetworkListOptions{})
@@ -764,4 +760,22 @@ func (c *Docker) ListNetwork() ([]types.NetworkResource, error) {
 	}
 
 	return networks, err
+}
+
+/*
+Get a docker virtual network by name
+*/
+func (c *Docker) GetNetworkByName(name string) (*types.NetworkResource, error) {
+	networks, err := c.ListNetwork()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, network := range networks {
+		if network.Name == name {
+			return &network, nil
+		}
+	}
+
+	return nil, errors.New("network not found")
 }

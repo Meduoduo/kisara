@@ -6,6 +6,7 @@ import (
 	"github.com/Yeuoly/kisara/src/helper"
 	"github.com/Yeuoly/kisara/src/router/client"
 	synergy_client "github.com/Yeuoly/kisara/src/routine/synergy/client"
+	takina "github.com/Yeuoly/kisara/src/routine/takina"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,6 +20,7 @@ func setupRouter() *gin.Engine {
 
 func setupConfig() {
 	helper.InitServerConfig()
+	takina.InitTakina()
 }
 
 func main() {

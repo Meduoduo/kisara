@@ -1,5 +1,7 @@
 package types
 
+import "github.com/docker/docker/api/types"
+
 type KisaraReponse struct {
 	// Code is the code of the response
 	Code int `json:"code"`
@@ -94,4 +96,229 @@ type ResponseHeartBeat struct {
 	ClientID string `json:"client_id"`
 	// Timestamp is the timestamp of the client, used to check the connection, if the timestamp is not updated for a long time, the client should reconnect
 	Timestamp int64 `json:"timestamp"`
+}
+
+type RequestLaunchContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) CreateContainer(image *Image, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*Container, error)
+	// Image is the image of the container
+	Image string `json:"image"`
+	// UID is the uid of the container
+	UID int `json:"uid"`
+	// PortProtocol is the port protocol of the container
+	PortProtocol string `json:"port_protocol"`
+	// SubnetName is the subnet name of the container
+	SubnetName string `json:"subnet_name"`
+	// Module is the module of the container
+	Module string `json:"module"`
+	// EnvMount is the env mount of the container
+	EnvMount []map[string]string `json:"env_mount"`
+}
+
+type ResponseLaunchContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ContainerID is the container ID of the container
+	Container Container
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestStopContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ContainerID is the container ID of the container
+	ContainerID string `json:"container_id"`
+}
+
+type ResponseStopContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestRemoveContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ContainerID is the container ID of the container
+	ContainerID string `json:"container_id"`
+}
+
+type ResponseRemoveContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestListContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) ListContainer() (*[]*kisara_types.Container, error)
+}
+
+type ResponseListContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Containers is the containers of the container
+	Containers []Container `json:"containers"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestExecContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) Exec(container_id string, cmd string) error
+	// ContainerID is the container ID of the container
+	ContainerID string `json:"container_id"`
+	// Cmd is the cmd of the container
+	Cmd string `json:"cmd"`
+}
+
+type ResponseExecContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestInspectContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisara_types.Container, error)
+	// ContainerID is the container ID of the container
+	ContainerID string `json:"container_id"`
+	// HasState is the has state of the container
+	HasState bool `json:"has_state"`
+}
+
+type ResponseInspectContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Container is the container of the container
+	Container Container `json:"container"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestListImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) ListImage() (*[]*kisara_types.Image, error)
+}
+
+type ResponseListImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Images is the images of the container
+	Images []Image `json:"images"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestDeleteImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) DeleteImage(image_id string) error
+	// ImageID is the image ID of the container
+	ImageID string `json:"image_id"`
+}
+
+type ResponseDeleteImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestPullImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func HandleControllerRequestPullImage(request_id string, image_name string, port_protocol string, user string)
+	// ImageName is the image name of the container
+	ImageName string `json:"image_name"`
+	// PortProtocol is the port protocol of the container
+	PortProtocol string `json:"port_protocol"`
+	// User is the user of the container
+	User string `json:"user"`
+}
+
+type ResponsePullImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// RequestID is the request ID of the container
+	RequestID string `json:"request_id"`
+}
+
+type RequestCheckPullImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func HandleControllerRequestCheckPullImage(request_id string)
+	// RequestID is the request ID of the container
+	RequestID string `json:"request_id"`
+}
+
+type ResponseCheckPullImage struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// Finished is the finished of the container
+	Finished bool `json:"finished"`
+	// RequestID is the request ID of the container
+	Message string `json:"message"`
+}
+
+type RequestCreateNetwork struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) CreateNetwork(subnet string, name string, host_join bool) error
+	// Subnet is the subnet of the container
+	Subnet string `json:"subnet"`
+	// Name is the name of the container
+	Name string `json:"name"`
+	// HostJoin is the host join of the container
+	HostJoin bool `json:"host_join"`
+}
+
+type ResponseCreateNetwork struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestRemoveNetwork struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) RemoveNetwork(network_id string) error
+	// NetworkID is the network ID of the container
+	NetworkID string `json:"network_id"`
+}
+
+type ResponseRemoveNetwork struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestListNetwork struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// func (c *Docker) ListNetwork() (*[]*types.Network, error)
+}
+
+type ResponseListNetwork struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Networks is the networks of the container
+	Networks []types.NetworkResource `json:"networks"`
+	// Error is the error of the container
+	Error string `json:"error"`
 }
