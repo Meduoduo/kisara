@@ -453,6 +453,23 @@ func (c *Docker) LaunchTargetMachine(image_name string, port_protocol string, su
 	return container, nil
 }
 
+func (c *Docker) LaunchContainer(image_name string, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
+	image := &kisara_types.Image{
+		Name: image_name,
+		User: "root",
+	}
+
+	container, err := c.CreateContainer(image, uid, port_protocol, subnet_name, module, env_mount...)
+	if err != nil {
+		log.Warn("[docker] create container failed: " + err.Error())
+		return nil, err
+	}
+
+	log.Info("[docker] launch target machine successfully: " + container.Id)
+
+	return container, nil
+}
+
 func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, subnet_name string, env map[string]string) (*kisara_types.Container, error) {
 	image := &kisara_types.Image{
 		Name: image_name,
@@ -500,6 +517,12 @@ func (c *Docker) StopContainer(id string) error {
 	}
 	err = c.Client.ContainerRemove(*c.Ctx, id, types.ContainerRemoveOptions{})
 
+	return err
+}
+
+func (c *Docker) RemoveContainer(id string) error {
+	log.Info("[docker] remove conatiner: " + id)
+	err := c.Client.ContainerRemove(*c.Ctx, id, types.ContainerRemoveOptions{})
 	return err
 }
 
@@ -778,4 +801,15 @@ func (c *Docker) GetNetworkByName(name string) (*types.NetworkResource, error) {
 	}
 
 	return nil, errors.New("network not found")
+}
+
+/*
+Get container Number
+*/
+func (c *Docker) GetContainerNumber() (int, error) {
+	containers, err := c.Client.ContainerList(*c.Ctx, types.ContainerListOptions{})
+	if err != nil {
+		return 0, err
+	}
+	return len(containers), nil
 }

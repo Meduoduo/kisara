@@ -79,6 +79,8 @@ type RequestStatus struct {
 	NetworkUsage float64 `json:"network_usage"`
 	// ContainerNum is the number of containers of the client
 	ContainerNum int `json:"container_num"`
+	// ContainerUsage is the usage of containers of the client
+	ContainerUsage float64 `json:"container_usage"`
 }
 
 type ResponseStatus struct {
@@ -117,6 +119,31 @@ type RequestLaunchContainer struct {
 }
 
 type ResponseLaunchContainer struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Response Id
+	ResponseId string `json:"response_id"`
+}
+
+type RequestCheckLaunchStatus struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Response Id
+	ResponseId string `json:"response_id"`
+}
+
+type ResponseCheckLaunchStatus struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ContainerID is the container ID of the container
+	Container Container
+	// Error is the error of the container
+	Error string `json:"error"`
+	// Finished
+	Finished bool `json:"finished"`
+}
+
+type ResponseFinalLaunchStatus struct {
 	// ClientID is the unique ID of the client
 	ClientID string `json:"client_id"`
 	// ContainerID is the container ID of the container
@@ -190,7 +217,7 @@ type RequestInspectContainer struct {
 	ClientID string `json:"client_id"`
 	// func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisara_types.Container, error)
 	// ContainerID is the container ID of the container
-	ContainerID string `json:"container_id"`
+	ContainerIDs []string `json:"container_id"`
 	// HasState is the has state of the container
 	HasState bool `json:"has_state"`
 }
@@ -199,7 +226,7 @@ type ResponseInspectContainer struct {
 	// ClientID is the unique ID of the client
 	ClientID string `json:"client_id"`
 	// Container is the container of the container
-	Container Container `json:"container"`
+	Containers []Container `json:"container"`
 	// Error is the error of the container
 	Error string `json:"error"`
 }

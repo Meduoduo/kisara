@@ -6,7 +6,7 @@ import (
 )
 
 func InitServerConfig() {
-	viper.SetConfigName("conf")
+	viper.SetConfigName("kisara-conf")
 	viper.SetConfigType("toml")
 	viper.AddConfigPath("./conf/")
 

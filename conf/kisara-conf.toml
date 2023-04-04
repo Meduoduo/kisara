@@ -6,6 +6,9 @@ dns = "8.8.8.8" # container's dns server
 [kisaraClient]
 address = "127.0.0.1" # this address will be infered to master server, so that master could connect to this client
 port = 7373
+network_in = 52428800 # 50Mbps
+network_out = 52428800 # 50Mbps
+max_container = 80 # max container number
 
 [kisaraServer]
 address = "127.0.0.1" # for client, which master should it connect to

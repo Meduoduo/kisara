@@ -35,7 +35,11 @@ func HandleDisconnect(r *gin.Context) {
 
 func HandleHeartBeat(r *gin.Context) {
 	controller.BindRequest(r, func(rhb types.RequestHeartBeat) {
-		server.UpdateHeartBeat(rhb.ClientID)
+		err := server.UpdateHeartBeat(rhb.ClientID)
+		if err != nil {
+			r.JSON(200, types.ErrorResponse(-500, err.Error()))
+			return
+		}
 		r.JSON(200, types.SuccessResponse(types.ResponseHeartBeat{
 			ClientID:  rhb.ClientID,
 			Timestamp: time.Now().Unix(),
@@ -45,5 +49,20 @@ func HandleHeartBeat(r *gin.Context) {
 
 func HandleRecvStatus(r *gin.Context) {
 	controller.BindRequest(r, func(rss types.RequestStatus) {
+		err := server.UpdateClientStatus(rss.ClientID, types.ClientStatus{
+			CPUUsage:       rss.CPUUsage,
+			MemoryUsage:    rss.MemoryUsage,
+			DiskUsage:      rss.DiskUsage,
+			NetworkUsage:   rss.NetworkUsage,
+			ContainerNum:   rss.ContainerNum,
+			ContainerUsage: rss.ContainerUsage,
+		})
+		if err != nil {
+			r.JSON(200, types.ErrorResponse(-500, err.Error()))
+			return
+		}
+		r.JSON(200, types.SuccessResponse(types.ResponseStatus{
+			ClientID: rss.ClientID,
+		}))
 	})
 }

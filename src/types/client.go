@@ -1,5 +1,7 @@
 package types
 
+import "strconv"
+
 type Client struct {
 	// ClientID is the unique ID of the client
 	ClientID string `json:"client_id"`
@@ -9,6 +11,10 @@ type Client struct {
 	ClientPort int `json:"client_port"`
 	// Token
 	ClientToken string `json:"client_token"`
+}
+
+func (c *Client) GenerateClientURI(path string) string {
+	return "http://" + c.ClientIp + ":" + strconv.Itoa(c.ClientPort) + path
 }
 
 type ClientStatus struct {
@@ -24,4 +30,6 @@ type ClientStatus struct {
 	NetworkUsage float64 `json:"network_usage"`
 	// ContainerNum is the number of containers of the client
 	ContainerNum int `json:"container_num"`
+	// ContainerUsage is the usage of containers of the client
+	ContainerUsage float64 `json:"container_usage"`
 }

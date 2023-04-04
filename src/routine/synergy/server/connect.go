@@ -1,9 +1,13 @@
 package server
 
 import (
+	"errors"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/Yeuoly/kisara/src/helper"
+	"github.com/Yeuoly/kisara/src/router"
 	log "github.com/Yeuoly/kisara/src/routine/log"
 	"github.com/Yeuoly/kisara/src/types"
 	uuid "github.com/satori/go.uuid"
@@ -14,13 +18,65 @@ import (
 */
 
 var clientMap sync.Map
+var containerMap sync.Map
 
 var waitConnectionChan = make(chan types.RequestConnect, 100)
 
 type ClientItem struct {
 	ClientID      string
 	Client        *types.Client
+	ClientStatus  *types.ClientStatus
 	LastHeartBeat time.Time
+}
+
+type ContainerItem struct {
+	ClientId    string
+	ContainerId string
+	Container   *types.Container
+}
+
+func AddContainer(container_id string, client_id string, container *types.Container) {
+	containerMap.Store(container_id, &ContainerItem{
+		ClientId:    client_id,
+		ContainerId: container_id,
+		Container:   container,
+	})
+}
+
+func GetContainer(container_id string) (*types.Container, string, error) {
+	if container, ok := containerMap.Load(container_id); ok {
+		return container.(*ContainerItem).Container, container.(*ContainerItem).ClientId, nil
+	}
+	return nil, "", errors.New("container not found")
+}
+
+func DeleteContainer(container_id string) {
+	containerMap.Delete(container_id)
+}
+
+func (c *ClientItem) GetDemand() (float64, error) {
+	if c.ClientStatus == nil {
+		return 0, errors.New("client status is not initialized")
+	}
+
+	status := *c.ClientStatus
+	if status.NetworkUsage >= 0.9 {
+		return 1, nil
+	}
+
+	if status.CPUUsage >= 0.98 {
+		return 1, nil
+	}
+
+	if status.MemoryUsage >= 0.98 {
+		return 1, nil
+	}
+
+	if status.ContainerUsage >= 1 {
+		return 1, nil
+	}
+
+	return status.CPUUsage*0.7 + status.MemoryUsage*0.2 + status.ContainerUsage*0.1, nil
 }
 
 func AddConnectRequest(req types.RequestConnect) {
@@ -38,14 +94,89 @@ func GetClient(client_id string) *types.Client {
 	return nil
 }
 
-func UpdateHeartBeat(client_id string) {
+func UpdateHeartBeat(client_id string) error {
 	if client, ok := clientMap.Load(client_id); ok {
 		client.(*ClientItem).LastHeartBeat = time.Now()
+		return nil
 	}
+	return errors.New("client not found")
+}
+
+func UpdateClientStatus(client_id string, status types.ClientStatus) error {
+	//log.Info("[Connection] Received client status update from client [%s] with cpu usage [%f], memory usage [%f], container usage [%f], network usage [%f], containers [%d]", client_id, status.CPUUsage, status.MemoryUsage, status.ContainerUsage, status.NetworkUsage, status.ContainerNum)
+	if client, ok := clientMap.Load(client_id); ok {
+		status := status
+		client.(*ClientItem).ClientStatus = &status
+		return nil
+	}
+	return errors.New("client not found")
+}
+
+func UpdateClientContainer(client_id string) error {
+	client := GetClient(client_id)
+	if client == nil {
+		return errors.New("client not found")
+	}
+
+	// get all containers
+	resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseListContainer]](
+		client.GenerateClientURI(router.URI_CLIENT_LIST_CONTAINER),
+		helper.HttpPayloadJson(types.RequestListContainer{
+			ClientID: client_id,
+		}),
+		helper.HttpTimeout(2000),
+	)
+	if err != nil {
+		return err
+	}
+
+	if resp.Code != 0 {
+		return errors.New(resp.Message)
+	}
+
+	if resp.Data.Error != "" {
+		return errors.New(resp.Data.Error)
+	}
+
+	// update container list
+	for _, container := range resp.Data.Containers {
+		AddContainer(container.Id, client_id, &container)
+	}
+
+	return nil
 }
 
 func Disconnect(client_id string) {
 	clientMap.Delete(client_id)
+}
+
+func GetClientStatus(client_id string) (types.ClientStatus, error) {
+	if client, ok := clientMap.Load(client_id); ok {
+		return *client.(*ClientItem).ClientStatus, nil
+	}
+	return types.ClientStatus{}, errors.New("client not found")
+}
+
+func FetchLowestDemandClient() (types.Client, error) {
+	var lowestDemandClient types.Client
+	var lowestDemand float64 = math.MaxFloat64
+	clientMap.Range(func(key, value interface{}) bool {
+		client := value.(*ClientItem)
+		demand, err := client.GetDemand()
+		if err != nil {
+			return true
+		} else {
+			if demand < lowestDemand {
+				lowestDemandClient = *client.Client
+				lowestDemand = demand
+			}
+		}
+		return true
+	})
+	if lowestDemand == math.MaxFloat64 {
+		return types.Client{}, errors.New("no client found")
+	}
+	return lowestDemandClient, nil
 }
 
 // Server is the main function of the synergy server, it's non-blocking, call it directly without goroutine
@@ -84,6 +215,10 @@ func Server() {
 }
 
 func handleClientConnection(client_id string) {
+	// update client containers
+	if err := UpdateClientContainer(client_id); err != nil {
+		log.Warn("[Connection] Failed to update client containers, error: %s", err.Error())
+	}
 	timer := time.NewTicker(30 * time.Second)
 	defer timer.Stop()
 	defer log.Info("[Connection] Client %s disconnected", client_id)
@@ -100,4 +235,13 @@ func handleClientConnection(client_id string) {
 			return
 		}
 	}
+}
+
+func GetNodes() []ClientItem {
+	var clients []ClientItem
+	clientMap.Range(func(key, value interface{}) bool {
+		clients = append(clients, *value.(*ClientItem))
+		return true
+	})
+	return clients
 }

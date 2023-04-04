@@ -11,6 +11,7 @@ import (
 
 	"github.com/Yeuoly/kisara/src/helper"
 	"github.com/Yeuoly/kisara/src/router"
+	docker "github.com/Yeuoly/kisara/src/routine/docker"
 	log "github.com/Yeuoly/kisara/src/routine/log"
 	"github.com/Yeuoly/kisara/src/types"
 	uuid "github.com/satori/go.uuid"
@@ -22,6 +23,10 @@ var clientPort int
 var clientToken string
 var serverIp string
 var serverPort int
+
+func GetClientId() string {
+	return clientId
+}
 
 func getServerRequest(uri string) string {
 	return fmt.Sprintf("http://%s:%d%s", serverIp, serverPort, uri)
@@ -60,6 +65,71 @@ func Client() {
 	}()
 }
 
+// upload client status to server
+func uploadStatus() {
+	cpu_usage, err := helper.GetCPUUsageTotal()
+	if err != nil {
+		log.Warn("[Connection] Failed to get CPU usage: %s", err.Error())
+		cpu_usage = 0
+	}
+
+	mem_usage, _, _, err := helper.GetMemUsage()
+	if err != nil {
+		log.Warn("[Connection] Failed to get memory usage: %s", err.Error())
+		mem_usage = 0
+	}
+
+	disk_usage, _, _, err := helper.GetDiskUsage()
+	if err != nil {
+		log.Warn("[Connection] Failed to get disk usage: %s", err.Error())
+		disk_usage = 0
+	}
+
+	network_usage_in, _, err := helper.GetNetUsagePercent()
+	if err != nil {
+		log.Warn("[Connection] Failed to get network usage: %s", err.Error())
+		network_usage_in = 0
+	}
+
+	max_container := helper.GetMaxContainer()
+	if max_container == 0 {
+		log.Warn("[Connection] Max container is not set")
+		max_container = 1
+	}
+
+	docker := docker.NewDocker()
+	container_num, err := docker.GetContainerNumber()
+	if err != nil {
+		log.Warn("[Connection] Failed to get container number: %s", err.Error())
+		container_num = 0
+	}
+
+	log.Info("[Connection] Uploading status to server %s:%d with cpu %f%%, mem %f%%, disk %f%%, net %f%%, container_num %d", serverIp, serverPort, cpu_usage, mem_usage, disk_usage, network_usage_in, container_num)
+
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseStatus]](
+		getServerRequest(router.URI_SERVER_STATUS),
+		helper.HttpPayloadJson(types.RequestStatus{
+			ClientID:       clientId,
+			CPUUsage:       math.Round(cpu_usage*100) / 100,
+			MemoryUsage:    math.Round(mem_usage*100) / 100,
+			DiskUsage:      math.Round(disk_usage*100) / 100,
+			NetworkUsage:   math.Round(network_usage_in*100) / 100,
+			ContainerNum:   container_num,
+			ContainerUsage: math.Round(float64(container_num)/float64(max_container)*100) / 100,
+		}),
+		helper.HttpTimeout(5000),
+	)
+
+	if err != nil {
+		log.Warn("[Connection] Failed to upload status to server: %s", err.Error())
+		return
+	}
+	if resp.Code != 0 {
+		log.Warn("[Connection] Failed to upload status to server: %s", resp.Message)
+		return
+	}
+}
+
 func connect() {
 	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseConnect]](
 		getServerRequest(router.URI_SERVER_CONNECT),
@@ -90,6 +160,17 @@ func connect() {
 	// start heart beat
 	log.Info("[Connection] Connected to server, start heart beat")
 	defer log.Warn("[Connection] Heart beat stopped")
+	// start status monitor
+	ticker := time.NewTicker(time.Duration(10 * time.Second))
+	defer ticker.Stop()
+	uploadStatus()
+
+	go func() {
+		for range ticker.C {
+			uploadStatus()
+		}
+	}()
+
 	for {
 		resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseHeartBeat]](
 			getServerRequest(router.URI_SERVER_HEARTBEAT),
