@@ -11,15 +11,16 @@ type Image struct {
 }
 
 type Container struct {
-	Id       string  `json:"id"`
-	Image    string  `json:"image"`
-	Uuid     string  `json:"uuid"`
-	Time     int     `json:"time"`
-	Owner    int     `json:"owner"`
-	HostPort string  `json:"host_port"`
-	Status   string  `json:"status"`
-	CPUUsage float64 `json:"cpu_usage"`
-	MemUsage float64 `json:"mem_usage"`
+	Id       string            `json:"id"`
+	Image    string            `json:"image"`
+	Uuid     string            `json:"uuid"`
+	Time     int               `json:"time"`
+	Owner    int               `json:"owner"`
+	HostPort string            `json:"host_port"`
+	Labels   map[string]string `json:"labels"`
+	Status   string            `json:"status"`
+	CPUUsage float64           `json:"cpu_usage"`
+	MemUsage float64           `json:"mem_usage"`
 }
 
 type Network struct {

@@ -262,6 +262,84 @@ func ExecContainer(req types.RequestExecContainer, timeout time.Duration) (types
 	}, nil
 }
 
+func InspectContainer(req types.RequestInspectContainer, timeout time.Duration) (types.ResponseInspectContainer, error) {
+	var node []struct {
+		ClientId   string
+		Containers []string
+	}
+
+	addContainer := func(client_id string, container_id string) {
+		for i, n := range node {
+			if n.ClientId == client_id {
+				node[i].Containers = append(node[i].Containers, container_id)
+				return
+			}
+		}
+		node = append(node, struct {
+			ClientId   string
+			Containers []string
+		}{
+			ClientId:   client_id,
+			Containers: []string{container_id},
+		})
+	}
+
+	if req.ClientID == "" {
+		// try to find the client of each container
+		for _, container_id := range req.ContainerIDs {
+			_, client_id, err := server.GetContainer(container_id)
+			if err != nil {
+				continue
+			}
+			addContainer(client_id, container_id)
+		}
+	} else {
+		for _, container_id := range req.ContainerIDs {
+			addContainer(req.ClientID, container_id)
+		}
+	}
+
+	var containers []types.Container
+
+	for _, n := range node {
+		client := server.GetClient(n.ClientId)
+		if client == nil {
+			log.Warn("[Kisara-API] client %s not found", n.ClientId)
+		}
+
+		resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseInspectContainer]](
+			client.GenerateClientURI(router.URI_CLIENT_INSPECT_CONTAINER),
+			helper.HttpTimeout(timeout.Milliseconds()),
+			helper.HttpPayloadJson(types.RequestInspectContainer{
+				ClientID:     n.ClientId,
+				ContainerIDs: n.Containers,
+				HasState:     true,
+			}),
+		)
+		if err != nil {
+			log.Warn("[Kisara-API] client %s inspect container error: %s", n.ClientId, err.Error())
+			continue
+		}
+
+		if resp.Code != 0 {
+			log.Warn("[Kisara-API] client %s inspect container error: %s", n.ClientId, resp.Message)
+			continue
+		}
+
+		if resp.Data.Error != "" {
+			log.Warn("[Kisara-API] client %s inspect container error: %s", n.ClientId, resp.Data.Error)
+			continue
+		}
+
+		containers = append(containers, resp.Data.Containers...)
+	}
+
+	return types.ResponseInspectContainer{
+		ClientID:   req.ClientID,
+		Containers: containers,
+	}, nil
+}
+
 // create a new network on target node
 func CreateNetwork(req types.RequestCreateNetwork, timeout time.Duration) (types.ResponseCreateNetwork, error) {
 	if req.ClientID == "" {

@@ -728,6 +728,7 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisa
 		Id:       container.ID,
 		HostPort: container.Config.Labels["host_port"],
 		Status:   container.Config.Labels["status"],
+		Labels:   container.Config.Labels,
 		// cpu usage
 		// memory usage
 		CPUUsage: cpu_usage,

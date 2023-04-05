@@ -54,6 +54,7 @@ func main() {
 				fmt.Println("start [image_name]: start a container")
 				fmt.Println("remove [container_id]: remove a container")
 				fmt.Println("exec [container_id] cmd: execute command in container")
+				fmt.Println("inspect [container_id]: inspect a container")
 				fmt.Println("networks: list all networks")
 				fmt.Println("create-network [client_id] [subnet] [name]: create a network")
 				fmt.Println("remove-network [client_id] [network_id]: remove a network")
@@ -112,6 +113,16 @@ func main() {
 				resp, err := server_api.ExecContainer(types.RequestExecContainer{
 					ContainerID: split[0],
 					Cmd:         strings.Join(split[1:], " "),
+				}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if strings.HasPrefix(text, "inspect") {
+				fmt.Println("Start to inspect container")
+				resp, err := server_api.InspectContainer(types.RequestInspectContainer{
+					ContainerIDs: []string{strings.TrimPrefix(text, "inspect ")},
 				}, time.Duration(time.Second*5))
 				if err != nil {
 					fmt.Println("Error: ", err)
