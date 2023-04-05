@@ -180,7 +180,10 @@ func FetchLowestDemandClient() (types.Client, error) {
 }
 
 // Server is the main function of the synergy server, it's non-blocking, call it directly without goroutine
-func Server() {
+func Server(show_log ...bool) {
+	if len(show_log) > 0 && show_log[0] {
+		log.SetShowLog(show_log[0])
+	}
 	// add client listener
 	log.Info("[Connection] Start listening for new clients")
 	go func() {

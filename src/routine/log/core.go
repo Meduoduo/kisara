@@ -72,7 +72,9 @@ func (l *Log) writeLog(level string, format string, v ...interface{}) {
 	//write log
 	format = fmt.Sprintf("["+level+"]"+format, v...)
 
-	logger.Output(4, format)
+	if show_log {
+		logger.Output(4, format)
+	}
 
 	_, err := l.File.Write([]byte(format + "\n"))
 	if err != nil {
@@ -158,7 +160,12 @@ func initlog() {
 }
 
 var main_log *Log // wapper of go_log
+var show_log bool = true
 var logger = go_log.New(os.Stdout, "", go_log.Ldate|go_log.Ltime|go_log.Lshortfile)
+
+func SetShowLog(show bool) {
+	show_log = show
+}
 
 func SetLogLevel(level int) {
 	if main_log == nil {

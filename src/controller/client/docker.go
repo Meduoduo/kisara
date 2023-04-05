@@ -239,3 +239,18 @@ func HandleInspectContainers(r *gin.Context) {
 		}))
 	})
 }
+
+func HandleExecContainer(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestExecContainer) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+			resp := types.ResponseExecContainer{}
+			resp.ClientID = rc.ClientID
+			docker := docker.NewDocker()
+			err := docker.Exec(rc.ContainerID, rc.Cmd)
+			if err != nil {
+				return types.ErrorResponse(-500, err.Error())
+			}
+			return types.SuccessResponse(resp)
+		}))
+	})
+}

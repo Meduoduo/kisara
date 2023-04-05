@@ -170,35 +170,46 @@ func RemoveContainer(req types.RequestRemoveContainer, timeout time.Duration) (t
 }
 
 func ListContainer(req types.RequestListContainer, timeout time.Duration) (types.ResponseListContainer, error) {
+	clients := []string{}
+
 	if req.ClientID == "" {
-		return types.ResponseListContainer{}, errors.New("client id is empty")
+		nodes := server.GetNodes()
+		for _, node := range nodes {
+			clients = append(clients, node.ClientID)
+		}
 	}
 
-	client := server.GetClient(req.ClientID)
-	if client == nil {
-		return types.ResponseListContainer{}, errors.New("client not found")
-	}
+	containers := []types.Container{}
 
-	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseListContainer]](
-		client.GenerateClientURI(router.URI_CLIENT_LIST_CONTAINER),
-		helper.HttpTimeout(timeout.Milliseconds()),
-		helper.HttpPayloadJson(req),
-	)
-	if err != nil {
-		return types.ResponseListContainer{}, err
-	}
+	for _, client_id := range clients {
+		client := server.GetClient(client_id)
+		if client == nil {
+			return types.ResponseListContainer{}, errors.New("client not found")
+		}
 
-	if resp.Code != 0 {
-		return types.ResponseListContainer{}, errors.New(resp.Message)
-	}
+		resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseListContainer]](
+			client.GenerateClientURI(router.URI_CLIENT_LIST_CONTAINER),
+			helper.HttpTimeout(timeout.Milliseconds()),
+			helper.HttpPayloadJson(req),
+		)
+		if err != nil {
+			return types.ResponseListContainer{}, err
+		}
 
-	if resp.Data.Error != "" {
-		return types.ResponseListContainer{}, errors.New(resp.Data.Error)
+		if resp.Code != 0 {
+			return types.ResponseListContainer{}, errors.New(resp.Message)
+		}
+
+		if resp.Data.Error != "" {
+			return types.ResponseListContainer{}, errors.New(resp.Data.Error)
+		}
+
+		containers = append(containers, resp.Data.Containers...)
 	}
 
 	return types.ResponseListContainer{
-		ClientID:   client.ClientID,
-		Containers: resp.Data.Containers,
+		ClientID:   req.ClientID,
+		Containers: containers,
 	}, nil
 }
 

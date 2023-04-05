@@ -8,6 +8,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/satori/go.uuid v1.2.0
+	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/viper v1.15.0
 )
 
