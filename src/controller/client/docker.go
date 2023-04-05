@@ -37,7 +37,7 @@ type launchContainerResponseFormat struct {
 func HandleLaunchContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestLaunchContainer) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			var resp *types.ResponseLaunchContainer
+			resp := &types.ResponseLaunchContainer{}
 			response_id := request.CreateNewResponse()
 			go func() {
 				docker := docker.NewDocker()
@@ -69,7 +69,7 @@ func HandleLaunchContainer(r *gin.Context) {
 func HandleCheckLaunchContainerStatus(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestCheckLaunchStatus) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseCheckLaunchStatus{}
+			resp := &types.ResponseCheckLaunchStatus{}
 			resp.ClientID = rc.ClientID
 			response_id := rc.ResponseId
 			response_text, ok := request.GetResponse(response_id)
@@ -95,7 +95,7 @@ func HandleCheckLaunchContainerStatus(r *gin.Context) {
 func HandleStopContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestStopContainer) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseStopContainer{}
+			resp := &types.ResponseStopContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			err := docker.StopContainer(rc.ContainerID)
@@ -110,7 +110,7 @@ func HandleStopContainer(r *gin.Context) {
 func HandleRemoveContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestRemoveContainer) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseRemoveContainer{}
+			resp := &types.ResponseRemoveContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			err := docker.RemoveContainer(rc.ContainerID)
@@ -125,7 +125,7 @@ func HandleRemoveContainer(r *gin.Context) {
 func HandleCreateSubnet(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestCreateNetwork) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseCreateNetwork{}
+			resp := &types.ResponseCreateNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			err := docker.CreateNetwork(rc.Subnet, rc.Name, rc.HostJoin)
@@ -140,7 +140,7 @@ func HandleCreateSubnet(r *gin.Context) {
 func HandleDeleteSubnet(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestRemoveNetwork) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseRemoveNetwork{}
+			resp := &types.ResponseRemoveNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			err := docker.DeleteNetwork(rc.NetworkID)
@@ -155,7 +155,7 @@ func HandleDeleteSubnet(r *gin.Context) {
 func HandleListImage(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestListImage) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseListImage{}
+			resp := &types.ResponseListImage{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			images, err := docker.ListImage()
@@ -178,7 +178,7 @@ func HandleListImage(r *gin.Context) {
 func HandleListContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestListContainer) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseListContainer{}
+			resp := &types.ResponseListContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			containers, err := docker.ListContainer()
@@ -201,7 +201,7 @@ func HandleListContainer(r *gin.Context) {
 func HandleListSubnet(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestListNetwork) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseListNetwork{}
+			resp := &types.ResponseListNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			networks, err := docker.ListNetwork()
@@ -220,7 +220,7 @@ func HandleListSubnet(r *gin.Context) {
 func HandleInspectContainers(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestInspectContainer) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseInspectContainer{}
+			resp := &types.ResponseInspectContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			containers := []types.Container{}
@@ -243,7 +243,7 @@ func HandleInspectContainers(r *gin.Context) {
 func HandleExecContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestExecContainer) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
-			resp := types.ResponseExecContainer{}
+			resp := &types.ResponseExecContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
 			err := docker.Exec(rc.ContainerID, rc.Cmd)

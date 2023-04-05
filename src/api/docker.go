@@ -11,6 +11,7 @@ import (
 
 	"github.com/Yeuoly/kisara/src/helper"
 	"github.com/Yeuoly/kisara/src/router"
+	log "github.com/Yeuoly/kisara/src/routine/log"
 	server "github.com/Yeuoly/kisara/src/routine/synergy/server"
 	"github.com/Yeuoly/kisara/src/types"
 )
@@ -62,7 +63,7 @@ func LaunchContainer(req types.RequestLaunchContainer, timeout time.Duration) (t
 		case <-timer.C:
 			return types.ResponseFinalLaunchStatus{}, errors.New("timeout")
 		case <-ticker.C:
-			resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseCheckLaunchStatus]](
+			resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseCheckLaunchStatus]](
 				client.GenerateClientURI(router.URI_CLIENT_LAUNCH_CONTAINER_CHECK),
 				helper.HttpTimeout(2000),
 				helper.HttpPayloadJson(types.RequestCheckLaunchStatus{
@@ -184,24 +185,35 @@ func ListContainer(req types.RequestListContainer, timeout time.Duration) (types
 	for _, client_id := range clients {
 		client := server.GetClient(client_id)
 		if client == nil {
-			return types.ResponseListContainer{}, errors.New("client not found")
+			log.Warn("[Kisara-API] client %s not found", client_id)
+			continue
 		}
 
-		resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseListContainer]](
+		resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseListContainer]](
 			client.GenerateClientURI(router.URI_CLIENT_LIST_CONTAINER),
 			helper.HttpTimeout(timeout.Milliseconds()),
-			helper.HttpPayloadJson(req),
+			helper.HttpPayloadJson(types.RequestListContainer{
+				ClientID: client.ClientID,
+			}),
 		)
 		if err != nil {
-			return types.ResponseListContainer{}, err
+			log.Warn("[Kisara-API] client %s list container error: %s", client_id, err.Error())
+			continue
 		}
 
 		if resp.Code != 0 {
-			return types.ResponseListContainer{}, errors.New(resp.Message)
+			log.Warn("[Kisara-API] client %s list container error: %s", client_id, resp.Message)
+			continue
 		}
 
 		if resp.Data.Error != "" {
-			return types.ResponseListContainer{}, errors.New(resp.Data.Error)
+			log.Warn("[Kisara-API] client %s list container error: %s", client_id, resp.Data.Error)
+			continue
+		}
+
+		server.FlushContainer(client_id)
+		for _, container := range resp.Data.Containers {
+			server.AddContainer(container.Id, client_id, &container)
 		}
 
 		containers = append(containers, resp.Data.Containers...)
@@ -284,35 +296,52 @@ func CreateNetwork(req types.RequestCreateNetwork, timeout time.Duration) (types
 }
 
 func ListNetwork(req types.RequestListNetwork, timeout time.Duration) (types.ResponseListNetwork, error) {
+	clients := []string{}
+
 	if req.ClientID == "" {
-		return types.ResponseListNetwork{}, errors.New("client id is empty")
+		nodes := server.GetNodes()
+		for _, node := range nodes {
+			clients = append(clients, node.ClientID)
+		}
 	}
 
-	client := server.GetClient(req.ClientID)
-	if client == nil {
-		return types.ResponseListNetwork{}, errors.New("client not found")
-	}
+	networks := []types.Network{}
 
-	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseListNetwork]](
-		client.GenerateClientURI(router.URI_CLIENT_LIST_NETWORK),
-		helper.HttpTimeout(timeout.Milliseconds()),
-		helper.HttpPayloadJson(req),
-	)
-	if err != nil {
-		return types.ResponseListNetwork{}, err
-	}
+	for _, client_id := range clients {
+		client := server.GetClient(client_id)
+		if client == nil {
+			log.Warn("[Kisara-API] client %s not found", client_id)
+			continue
+		}
 
-	if resp.Code != 0 {
-		return types.ResponseListNetwork{}, errors.New(resp.Message)
-	}
+		resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseListNetwork]](
+			client.GenerateClientURI(router.URI_CLIENT_LIST_NETWORK),
+			helper.HttpTimeout(timeout.Milliseconds()),
+			helper.HttpPayloadJson(types.RequestListNetwork{
+				ClientID: client.ClientID,
+			}),
+		)
+		if err != nil {
+			log.Warn("[Kisara-API] client %s list network error: %s", client_id, err.Error())
+			continue
+		}
 
-	if resp.Data.Error != "" {
-		return types.ResponseListNetwork{}, errors.New(resp.Data.Error)
+		if resp.Code != 0 {
+			log.Warn("[Kisara-API] client %s list network error: %s", client_id, resp.Message)
+			continue
+		}
+
+		if resp.Data.Error != "" {
+			log.Warn("[Kisara-API] client %s list network error: %s", client_id, resp.Data.Error)
+			continue
+		}
+
+		networks = append(networks, resp.Data.Networks...)
 	}
 
 	return types.ResponseListNetwork{
-		ClientID: client.ClientID,
-		Networks: resp.Data.Networks,
+		ClientID: req.ClientID,
+		Networks: networks,
 	}, nil
 }
 
@@ -345,6 +374,56 @@ func RemoveNetwork(req types.RequestRemoveNetwork, timeout time.Duration) (types
 
 	return types.ResponseRemoveNetwork{
 		ClientID: client.ClientID,
+	}, nil
+}
+
+func ListImage(req types.RequestListImage, timeout time.Duration) (types.ResponseListImage, error) {
+	clients := []string{}
+
+	if req.ClientID == "" {
+		nodes := server.GetNodes()
+		for _, node := range nodes {
+			clients = append(clients, node.ClientID)
+		}
+	}
+
+	images := []types.Image{}
+
+	for _, client_id := range clients {
+		client := server.GetClient(client_id)
+		if client == nil {
+			log.Warn("[Kisara-API] client %s not found", client_id)
+			continue
+		}
+
+		resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseListImage]](
+			client.GenerateClientURI(router.URI_CLIENT_LIST_IMAGE),
+			helper.HttpTimeout(timeout.Milliseconds()),
+			helper.HttpPayloadJson(types.RequestListImage{
+				ClientID: client.ClientID,
+			}),
+		)
+		if err != nil {
+			log.Warn("[Kisara-API] client %s list image error: %s", client_id, err.Error())
+			continue
+		}
+
+		if resp.Code != 0 {
+			log.Warn("[Kisara-API] client %s list image error: %s", client_id, resp.Message)
+			continue
+		}
+
+		if resp.Data.Error != "" {
+			log.Warn("[Kisara-API] client %s list image error: %s", client_id, resp.Data.Error)
+			continue
+		}
+
+		images = append(images, resp.Data.Images...)
+	}
+
+	return types.ResponseListImage{
+		ClientID: req.ClientID,
+		Images:   images,
 	}, nil
 }
 

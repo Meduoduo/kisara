@@ -256,7 +256,7 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 		return nil, err
 	}
 
-	subnet_id := subnet_instance.ID
+	subnet_id := subnet_instance.Id
 
 	/*
 		date: 2022/11/19 author: Yeuoly
@@ -776,19 +776,34 @@ func (c *Docker) DeleteNetwork(network_id string) error {
 /*
 List all docker virtual network
 */
-func (c *Docker) ListNetwork() ([]types.NetworkResource, error) {
+func (c *Docker) ListNetwork() ([]kisara_types.Network, error) {
 	networks, err := c.Client.NetworkList(context.Background(), types.NetworkListOptions{})
 	if err != nil {
 		log.Warn("List network failed: %s", err.Error())
 	}
 
-	return networks, err
+	var ret []kisara_types.Network
+	for _, network := range networks {
+		if len(network.IPAM.Config) == 0 {
+			continue
+		}
+		ret = append(ret, kisara_types.Network{
+			Id:       network.ID,
+			Name:     network.Name,
+			Subnet:   network.IPAM.Config[0].Subnet,
+			Internal: network.Internal,
+			Driver:   network.Driver,
+			Scope:    network.Scope,
+		})
+	}
+
+	return ret, nil
 }
 
 /*
 Get a docker virtual network by name
 */
-func (c *Docker) GetNetworkByName(name string) (*types.NetworkResource, error) {
+func (c *Docker) GetNetworkByName(name string) (*kisara_types.Network, error) {
 	networks, err := c.ListNetwork()
 	if err != nil {
 		return nil, err

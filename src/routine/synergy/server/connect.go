@@ -35,14 +35,77 @@ type ContainerItem struct {
 	Container   *types.Container
 }
 
+type KisaraOnNodeConnect func(client_id string, client *types.Client)
+type KisaraOnNodeDisconnect func(client_id string, client *types.Client)
+type KisaraOnNodeHeartBeat func(client_id string, client *types.Client, status *types.ClientStatus)
+type KisaraOnNodeLaunchContainer func(client_id string, client *types.Client, container *types.Container)
+type KisaraOnNodeStopContainer func(client_id string, client *types.Client, container *types.Container)
+
+var onNodeConnect []KisaraOnNodeConnect
+var onNodeDisconnect []KisaraOnNodeDisconnect
+var onNodeHeartBeat []KisaraOnNodeHeartBeat
+var onNodeLaunchContainer []KisaraOnNodeLaunchContainer
+var onNodeStopContainer []KisaraOnNodeStopContainer
+
+func RegisterOnNodeConnect(f KisaraOnNodeConnect) {
+	onNodeConnect = append(onNodeConnect, f)
+}
+
+func RegisterOnNodeDisconnect(f KisaraOnNodeDisconnect) {
+	onNodeDisconnect = append(onNodeDisconnect, f)
+}
+
+func RegisterOnNodeHeartBeat(f KisaraOnNodeHeartBeat) {
+	onNodeHeartBeat = append(onNodeHeartBeat, f)
+}
+
+func RegisterOnNodeLaunchContainer(f KisaraOnNodeLaunchContainer) {
+	onNodeLaunchContainer = append(onNodeLaunchContainer, f)
+}
+
+func RegisterOnNodeStopContainer(f KisaraOnNodeStopContainer) {
+	onNodeStopContainer = append(onNodeStopContainer, f)
+}
+
+func UnsetOnNodeConnect() {
+	onNodeConnect = []KisaraOnNodeConnect{}
+}
+
+func UnsetOnNodeDisconnect() {
+	onNodeDisconnect = []KisaraOnNodeDisconnect{}
+}
+
+func UnsetOnNodeHeartBeat() {
+	onNodeHeartBeat = []KisaraOnNodeHeartBeat{}
+}
+
+func UnsetOnNodeLaunchContainer() {
+	onNodeLaunchContainer = []KisaraOnNodeLaunchContainer{}
+}
+
+func UnsetOnNodeStopContainer() {
+	onNodeStopContainer = []KisaraOnNodeStopContainer{}
+}
+
 func AddContainer(container_id string, client_id string, container *types.Container) {
 	containerMap.Store(container_id, &ContainerItem{
 		ClientId:    client_id,
 		ContainerId: container_id,
 		Container:   container,
 	})
+	for _, f := range onNodeLaunchContainer {
+		client := GetClient(client_id)
+		if client != nil {
+			f(client_id, client, container)
+		}
+	}
 }
 
+/*
+ret:
+
+	*container, client_id, error
+*/
 func GetContainer(container_id string) (*types.Container, string, error) {
 	if container, ok := containerMap.Load(container_id); ok {
 		return container.(*ContainerItem).Container, container.(*ContainerItem).ClientId, nil
@@ -50,8 +113,26 @@ func GetContainer(container_id string) (*types.Container, string, error) {
 	return nil, "", errors.New("container not found")
 }
 
+func FlushContainer(client_id string) {
+	containerMap.Range(func(key, value interface{}) bool {
+		if value.(*ContainerItem).ClientId == client_id {
+			DeleteContainer(value.(*ContainerItem).ContainerId)
+		}
+		return true
+	})
+}
+
 func DeleteContainer(container_id string) {
 	containerMap.Delete(container_id)
+	for _, f := range onNodeStopContainer {
+		container, client_id, err := GetContainer(container_id)
+		if err == nil {
+			client := GetClient(client_id)
+			if client != nil {
+				f(client_id, client, container)
+			}
+		}
+	}
 }
 
 func (c *ClientItem) GetDemand() (float64, error) {
@@ -98,6 +179,15 @@ func UpdateHeartBeat(client_id string) error {
 	if client, ok := clientMap.Load(client_id); ok {
 		client.(*ClientItem).LastHeartBeat = time.Now()
 		return nil
+	}
+	for _, f := range onNodeHeartBeat {
+		client := GetClient(client_id)
+		if client != nil {
+			status, err := GetClientStatus(client_id)
+			if err == nil {
+				f(client_id, client, &status)
+			}
+		}
 	}
 	return errors.New("client not found")
 }
@@ -212,6 +302,10 @@ func Server(show_log ...bool) {
 				ClientID:    req.ClientID,
 				ClientToken: client_token,
 			})
+			// on client connected
+			for _, f := range onNodeConnect {
+				f(req.ClientID, client)
+			}
 			go handleClientConnection(req.ClientID)
 		}
 	}()
@@ -225,14 +319,25 @@ func handleClientConnection(client_id string) {
 	timer := time.NewTicker(30 * time.Second)
 	defer timer.Stop()
 	defer log.Info("[Connection] Client %s disconnected", client_id)
+	defer func() {
+		for _, f := range onNodeDisconnect {
+			client := GetClient(client_id)
+			if client != nil {
+				f(client_id, client)
+			}
+		}
+	}()
 	for range timer.C {
 		if client, ok := clientMap.Load(client_id); ok {
 			if time.Since(client.(*ClientItem).LastHeartBeat) > 90*time.Second {
 				clientMap.Delete(client_id)
 				return
 			} else if time.Since(client.(*ClientItem).LastHeartBeat) > 40*time.Second {
-				log.Warn("[Connection] Client %s has not sent heartbeat for 40 seconds, server will lower the priority of this client", client_id)
-				return
+				log.Warn(
+					"[Connection] Client %s has not sent heartbeat for %d seconds, server will lower the priority of this client",
+					client_id,
+					int(time.Since(client.(*ClientItem).LastHeartBeat).Seconds()),
+				)
 			}
 		} else {
 			return

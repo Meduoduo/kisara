@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -267,7 +268,7 @@ func SendAndParse[T any](method string, url string, options ...HttpOptions) (T, 
 
 	err = json.Unmarshal(body_bytes, &result)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("json unmarshal error: %s, body: %s", err.Error(), string(body_bytes))
 	}
 
 	return result, nil

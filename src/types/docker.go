@@ -21,3 +21,12 @@ type Container struct {
 	CPUUsage float64 `json:"cpu_usage"`
 	MemUsage float64 `json:"mem_usage"`
 }
+
+type Network struct {
+	Id       string `json:"id"`
+	Subnet   string `json:"subnet"`
+	Name     string `json:"name"`
+	Internal bool   `json:"internal"`
+	Driver   string `json:"driver"`
+	Scope    string `json:"scope"`
+}

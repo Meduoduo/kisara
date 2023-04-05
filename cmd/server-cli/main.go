@@ -13,7 +13,6 @@ import (
 	synergy_server "github.com/Yeuoly/kisara/src/routine/synergy/server"
 	"github.com/Yeuoly/kisara/src/types"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 func setupRouter() *gin.Engine {
@@ -31,7 +30,9 @@ func setupConfig() {
 func main() {
 	setupConfig()
 	gin.SetMode(gin.ReleaseMode)
-	logrus.SetLevel(logrus.PanicLevel)
+	gin.DisableConsoleColor()
+	gin.DefaultWriter, _ = os.Create(os.DevNull)
+
 	// start server
 	synergy_server.Server()
 
@@ -50,11 +51,12 @@ func main() {
 				fmt.Println("exit: exit kisara")
 				fmt.Println("list: list all containers")
 				fmt.Println("stop [container_id]: stop a container")
-				fmt.Println("start [container_id]: start a container")
+				fmt.Println("start [image_name]: start a container")
 				fmt.Println("remove [container_id]: remove a container")
+				fmt.Println("exec [container_id] cmd: execute command in container")
 				fmt.Println("networks: list all networks")
-				fmt.Println("remove-create [subnet] [name]: create a network")
-				fmt.Println("remove-network [network_id]: remove a network")
+				fmt.Println("create-network [client_id] [subnet] [name]: create a network")
+				fmt.Println("remove-network [client_id] [network_id]: remove a network")
 				fmt.Println("images: list all images")
 			} else if text == "list" {
 				fmt.Println("Start to list all containers")
@@ -66,6 +68,131 @@ func main() {
 						fmt.Println(container)
 					}
 				}
+			} else if strings.HasPrefix(text, "stop ") {
+				fmt.Println("Start to stop container")
+				resp, err := server_api.StopContainer(types.RequestStopContainer{
+					ContainerID: strings.TrimPrefix(text, "stop "),
+				}, time.Duration(time.Second*30))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if strings.HasPrefix(text, "start ") {
+				fmt.Println("Start to start container")
+				resp, err := server_api.LaunchContainer(types.RequestLaunchContainer{
+					Image:        strings.TrimPrefix(text, "start "),
+					UID:          9,
+					PortProtocol: "80/tcp",
+					SubnetName:   "irina-train",
+					Module:       "train",
+				}, time.Duration(time.Second*30))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if strings.HasPrefix(text, "remove ") {
+				fmt.Println("Start to remove container")
+				resp, err := server_api.RemoveContainer(types.RequestRemoveContainer{
+					ContainerID: strings.TrimPrefix(text, "remove "),
+				}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if strings.HasPrefix(text, "exec") {
+				fmt.Println("Start to exec command in container")
+				split := strings.Split(strings.TrimPrefix(text, "exec "), " ")
+				if len(split) < 2 {
+					fmt.Println("Error: invalid command")
+					continue
+				}
+				resp, err := server_api.ExecContainer(types.RequestExecContainer{
+					ContainerID: split[0],
+					Cmd:         strings.Join(split[1:], " "),
+				}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if text == "images" {
+				fmt.Println("Start to list all images")
+				resp, err := server_api.ListImage(types.RequestListImage{}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					for _, image := range resp.Images {
+						fmt.Println(image)
+					}
+				}
+			} else if text == "networks" {
+				fmt.Println("Start to list all networks")
+				resp, err := server_api.ListNetwork(types.RequestListNetwork{}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					for _, network := range resp.Networks {
+						fmt.Println(network)
+					}
+				}
+			} else if strings.HasPrefix(text, "create-network ") {
+				fmt.Println("Start to create network")
+				split := strings.Split(strings.TrimPrefix(text, "create-network "), " ")
+				if len(split) != 3 {
+					fmt.Println("Error: invalid command")
+					continue
+				}
+				resp, err := server_api.CreateNetwork(types.RequestCreateNetwork{
+					ClientID: split[0],
+					Subnet:   split[1],
+					Name:     split[2],
+				}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if strings.HasPrefix(text, "remove-network ") {
+				fmt.Println("Start to remove network")
+				split := strings.Split(strings.TrimPrefix(text, "remove-network "), " ")
+				if len(split) != 2 {
+					fmt.Println("Error: invalid command")
+					continue
+				}
+				resp, err := server_api.RemoveNetwork(types.RequestRemoveNetwork{
+					ClientID:  split[0],
+					NetworkID: split[1],
+				}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if text == "images" {
+				fmt.Println("Start to list all images")
+				resp, err := server_api.ListImage(types.RequestListImage{}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					for _, image := range resp.Images {
+						fmt.Println(image)
+					}
+				}
+			} else if text == "nodes" {
+				fmt.Println("Start to list all nodes")
+				resp, err := server_api.GetNodes()
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					for _, node := range resp {
+						fmt.Println(node)
+					}
+				}
+			} else {
+				fmt.Println("Unknown command, type \"help\" to show help message")
 			}
 		}
 	}()

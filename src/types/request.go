@@ -1,7 +1,5 @@
 package types
 
-import "github.com/docker/docker/api/types"
-
 type KisaraReponse struct {
 	// Code is the code of the response
 	Code int `json:"code"`
@@ -345,7 +343,7 @@ type ResponseListNetwork struct {
 	// ClientID is the unique ID of the client
 	ClientID string `json:"client_id"`
 	// Networks is the networks of the container
-	Networks []types.NetworkResource `json:"networks"`
+	Networks []Network `json:"networks"`
 	// Error is the error of the container
 	Error string `json:"error"`
 }
