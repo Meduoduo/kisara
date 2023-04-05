@@ -59,6 +59,8 @@ func main() {
 				fmt.Println("create-network [client_id] [subnet] [name]: create a network")
 				fmt.Println("remove-network [client_id] [network_id]: remove a network")
 				fmt.Println("images: list all images")
+				fmt.Println("pull-image [client_id] [image_name]: pull an image")
+				fmt.Println("delete-image [client_id] [image_id]: remove an image")
 			} else if text == "list" {
 				fmt.Println("Start to list all containers")
 				resp, err := server_api.ListContainer(types.RequestListContainer{}, time.Duration(time.Second*5))
@@ -191,6 +193,40 @@ func main() {
 					for _, image := range resp.Images {
 						fmt.Println(image)
 					}
+				}
+			} else if strings.HasPrefix(text, "pull-image") {
+				fmt.Println("Start to pull image")
+				split := strings.Split(strings.TrimPrefix(text, "pull-image "), " ")
+				if len(split) != 2 {
+					fmt.Println("Error: invalid command")
+					continue
+				}
+				resp, err := server_api.PullImage(types.RequestPullImage{
+					ClientID:  split[0],
+					ImageName: split[1],
+				}, time.Duration(time.Second*600), func(message string) {
+					fmt.Printf("Pulling image: %s\r\n", message)
+				})
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
+				}
+			} else if strings.HasPrefix(text, "delete-image") {
+				fmt.Println("Start to delete image")
+				split := strings.Split(strings.TrimPrefix(text, "delete-image "), " ")
+				if len(split) != 2 {
+					fmt.Println("Error: invalid command")
+					continue
+				}
+				resp, err := server_api.DeleteImage(types.RequestDeleteImage{
+					ClientID: split[0],
+					ImageID:  split[1],
+				}, time.Duration(time.Second*5))
+				if err != nil {
+					fmt.Println("Error: ", err)
+				} else {
+					fmt.Println(resp)
 				}
 			} else if text == "nodes" {
 				fmt.Println("Start to list all nodes")

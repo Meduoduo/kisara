@@ -7,7 +7,7 @@ const (
 	URI_SERVER_STATUS     = "/status"     // report status to server
 
 	URI_CLIENT_LAUNCH_CONTAINER       = "/container/launch"       // launch container
-	URI_CLIENT_LAUNCH_CONTAINER_CHECK = "/container/launch/check" // launch container
+	URI_CLIENT_LAUNCH_CONTAINER_CHECK = "/container/launch/check" // launch container check
 	URI_CLIENT_STOP_CONTAINER         = "/container/stop"         // stop container
 	URI_CLIENT_REMOVE_CONTAINER       = "/container/remove"       // remove container
 	URI_CLIENT_LIST_CONTAINER         = "/container/list"         // list container
@@ -17,4 +17,7 @@ const (
 	URI_CLIENT_LIST_NETWORK           = "/network/list"           // list network
 	URI_CLIENT_REMOVE_NETWORK         = "/network/remove"         // remove network
 	URI_CLIENT_LIST_IMAGE             = "/image/list"             // list image
+	URI_CLIENT_PULL_IMAGE             = "/image/pull"             // pull image
+	URI_CLIENT_PULL_IMAGE_CHECK       = "/image/pull/check"       // pull image check
+	URI_CLIENT_DELETE_IMAGE           = "/image/delete"           // delete image
 )

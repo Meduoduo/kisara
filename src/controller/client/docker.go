@@ -5,13 +5,14 @@ import (
 
 	"github.com/Yeuoly/kisara/src/controller"
 	docker "github.com/Yeuoly/kisara/src/routine/docker"
+	log "github.com/Yeuoly/kisara/src/routine/log"
 	request "github.com/Yeuoly/kisara/src/routine/request"
 	synergy_client "github.com/Yeuoly/kisara/src/routine/synergy/client"
 	"github.com/Yeuoly/kisara/src/types"
 	"github.com/gin-gonic/gin"
 )
 
-func checkClientKey(client_id string, success func() types.KisaraReponse) types.KisaraReponse {
+func checkClientKey(client_id string, success func() types.KisaraResponse) types.KisaraResponse {
 	if client_id == synergy_client.GetClientId() {
 		return success()
 	}
@@ -36,7 +37,7 @@ type launchContainerResponseFormat struct {
 
 func HandleLaunchContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestLaunchContainer) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseLaunchContainer{}
 			response_id := request.CreateNewResponse()
 			go func() {
@@ -68,7 +69,7 @@ func HandleLaunchContainer(r *gin.Context) {
 
 func HandleCheckLaunchContainerStatus(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestCheckLaunchStatus) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseCheckLaunchStatus{}
 			resp.ClientID = rc.ClientID
 			response_id := rc.ResponseId
@@ -94,7 +95,7 @@ func HandleCheckLaunchContainerStatus(r *gin.Context) {
 
 func HandleStopContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestStopContainer) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseStopContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -109,7 +110,7 @@ func HandleStopContainer(r *gin.Context) {
 
 func HandleRemoveContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestRemoveContainer) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseRemoveContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -124,7 +125,7 @@ func HandleRemoveContainer(r *gin.Context) {
 
 func HandleCreateSubnet(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestCreateNetwork) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseCreateNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -139,7 +140,7 @@ func HandleCreateSubnet(r *gin.Context) {
 
 func HandleDeleteSubnet(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestRemoveNetwork) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseRemoveNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -152,9 +153,94 @@ func HandleDeleteSubnet(r *gin.Context) {
 	})
 }
 
+type pullImageResponseFormat struct {
+	Error    string `json:"error"`
+	Finished bool   `json:"finished"`
+}
+
+func HandlePullImage(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestPullImage) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponsePullImage{}
+			message_response_id := request.CreateNewResponse()
+			finish_response_id := request.CreateNewResponse()
+			go func() {
+				log.Info("[PullImage] Pulling image %s", rc.ImageName)
+				pull_message_callback := func(message string) {
+					log.Info("[PullImage] %s", message)
+					request.SetRequestStatusText(message_response_id, message)
+				}
+
+				docker := docker.NewDocker()
+				image, err := docker.PullImage(rc.ImageName, pull_message_callback)
+				if err != nil {
+					request.FinishRequest(message_response_id, "Finished (Error)")
+					request.FinishRequest(finish_response_id, jsonHelperEncoder(pullImageResponseFormat{
+						Error:    err.Error(),
+						Finished: true,
+					}))
+				} else if image == nil {
+					request.FinishRequest(message_response_id, "Finished (Image is nil)")
+					request.FinishRequest(finish_response_id, jsonHelperEncoder(pullImageResponseFormat{
+						Error:    "An unexpected error occurred, image is nil",
+						Finished: true,
+					}))
+				} else {
+					request.FinishRequest(message_response_id, "Finished")
+					request.FinishRequest(finish_response_id, jsonHelperEncoder(pullImageResponseFormat{
+						Error:    "",
+						Finished: true,
+					}))
+				}
+			}()
+			resp.FinishResponseID = finish_response_id
+			resp.MessageResponseId = message_response_id
+
+			resp.ClientID = rc.ClientID
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleCheckPullImage(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestCheckPullImage) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseCheckPullImage{}
+			resp.ClientID = rc.ClientID
+			message, _ := request.GetResponse(rc.MessageResponseId)
+			resp.Message = message
+			finish_response_text, finsihed := request.GetResponse(rc.FinishResponseID)
+			resp.Finished = finsihed
+			if finsihed {
+				finish_response := jsonHelperDecoder[pullImageResponseFormat](finish_response_text)
+				resp.Error = finish_response.Error
+				if resp.Error != "" {
+					return types.ErrorResponse(-500, resp.Error)
+				}
+			}
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleDeleteImage(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestDeleteImage) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseDeleteImage{}
+			resp.ClientID = rc.ClientID
+			docker := docker.NewDocker()
+			err := docker.DeleteImage(rc.ImageID)
+			if err != nil {
+				return types.ErrorResponse(-500, err.Error())
+			}
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
 func HandleListImage(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestListImage) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseListImage{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -177,7 +263,7 @@ func HandleListImage(r *gin.Context) {
 
 func HandleListContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestListContainer) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseListContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -200,7 +286,7 @@ func HandleListContainer(r *gin.Context) {
 
 func HandleListSubnet(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestListNetwork) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseListNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -219,7 +305,7 @@ func HandleListSubnet(r *gin.Context) {
 
 func HandleInspectContainers(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestInspectContainer) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseInspectContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
@@ -242,7 +328,7 @@ func HandleInspectContainers(r *gin.Context) {
 
 func HandleExecContainer(r *gin.Context) {
 	controller.BindRequest(r, func(rc types.RequestExecContainer) {
-		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraReponse {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseExecContainer{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()

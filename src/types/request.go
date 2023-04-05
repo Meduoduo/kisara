@@ -1,6 +1,6 @@
 package types
 
-type KisaraReponse struct {
+type KisaraResponse struct {
 	// Code is the code of the response
 	Code int `json:"code"`
 	// Message is the message of the response
@@ -18,19 +18,19 @@ type KisaraResponseWrap[T any] struct {
 	Data T `json:"data"`
 }
 
-func SuccessResponse(data interface{}) KisaraReponse {
-	return KisaraReponse{
+func SuccessResponse(data interface{}) KisaraResponse {
+	return KisaraResponse{
 		Code:    0,
 		Message: "success",
 		Data:    data,
 	}
 }
 
-func ErrorResponse(code int, message string) KisaraReponse {
+func ErrorResponse(code int, message string) KisaraResponse {
 	if code >= 0 {
 		code = -1
 	}
-	return KisaraReponse{
+	return KisaraResponse{
 		Code:    code,
 		Message: message,
 	}
@@ -277,7 +277,9 @@ type ResponsePullImage struct {
 	// Error is the error of the container
 	Error string `json:"error"`
 	// RequestID is the request ID of the container
-	RequestID string `json:"request_id"`
+	MessageResponseId string `json:"message_resposne_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
 }
 
 type RequestCheckPullImage struct {
@@ -285,7 +287,9 @@ type RequestCheckPullImage struct {
 	ClientID string `json:"client_id"`
 	// func HandleControllerRequestCheckPullImage(request_id string)
 	// RequestID is the request ID of the container
-	RequestID string `json:"request_id"`
+	MessageResponseId string `json:"message_resposne_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
 }
 
 type ResponseCheckPullImage struct {
@@ -297,6 +301,13 @@ type ResponseCheckPullImage struct {
 	Finished bool `json:"finished"`
 	// RequestID is the request ID of the container
 	Message string `json:"message"`
+}
+
+type ResponseFinalPullImageStatus struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
 }
 
 type RequestCreateNetwork struct {

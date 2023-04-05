@@ -13,7 +13,6 @@ import (
 
 	"github.com/Yeuoly/kisara/src/helper"
 	log "github.com/Yeuoly/kisara/src/routine/log"
-	request "github.com/Yeuoly/kisara/src/routine/request"
 	takina "github.com/Yeuoly/kisara/src/routine/takina"
 	kisara_types "github.com/Yeuoly/kisara/src/types"
 	"github.com/docker/docker/api/types"
@@ -38,7 +37,6 @@ type portMapping struct {
 	Protocol           string `json:"protocol"`
 }
 
-var docker_version string
 var docker_dns string
 
 type containerMonitor struct {
@@ -115,8 +113,6 @@ func attachMonitor(container_id string) {
 }
 
 func InitDocker() {
-	docker_version = "1.38"
-
 	docker_dns = helper.GetConfigString("kisara.dns")
 	if docker_dns == "" {
 		log.Panic("[docker] docker dns not set")
@@ -188,12 +184,12 @@ func (c *Docker) Stop() {
 	c.Client.Close()
 }
 
-func DockerPullImage(cli *Docker, image_name string, event_callback func(message string)) (*kisara_types.Image, error) {
+func (c *Docker) PullImage(image_name string, event_callback func(message string)) (*kisara_types.Image, error) {
 	image := kisara_types.Image{
 		Name: image_name,
 	}
 
-	reader, err := cli.Client.ImagePull(*cli.Ctx, image_name, types.ImagePullOptions{})
+	reader, err := c.Client.ImagePull(*c.Ctx, image_name, types.ImagePullOptions{})
 
 	if err != nil || reader == nil {
 		return nil, err
@@ -218,33 +214,6 @@ func DockerPullImage(cli *Docker, image_name string, event_callback func(message
 	}
 
 	return &image, nil
-}
-
-// 用于控制器启动子线程拉取镜像
-func HandleControllerRequestPullImage(request_id string, image_name string, port_protocol string, user string) {
-	docker := NewDocker()
-
-	message_callback := func(message string) {
-		request.SetRequestStatusText(request_id, message)
-	}
-	_, err := DockerPullImage(docker, image_name, message_callback)
-
-	var response struct {
-		Res int `json:"res"`
-	}
-
-	if err != nil {
-		response.Res = -1
-	} else {
-		response.Res = 0
-	}
-
-	text, _ := json.Marshal(response)
-	request.FinishRequest(request_id, string(text))
-
-	/*
-		TODO: add localstorage record
-	*/
 }
 
 func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
@@ -615,92 +584,6 @@ func (c *Docker) DeleteImage(uuid string) error {
 		return err
 	}
 	return nil
-}
-
-var docker_sync_lock sync.Mutex
-var docker_sync_request_id string
-
-func (c *Docker) syncImage(request_id string, images []string) {
-	defer docker_sync_lock.Unlock()
-
-	var response struct {
-		Res  int    `json:"res"`
-		Data string `json:"data"`
-		Err  string `json:"err"`
-	}
-
-	message_callback := func(message string) {
-		request.SetRequestStatusText(request_id, message)
-	}
-
-	exists_image, err := c.ListImage()
-	if err != nil {
-		response.Res = -1
-		response.Err = "拉取镜像列表失败"
-		response_text, _ := json.Marshal(response)
-		request.FinishRequest(request_id, string(response_text))
-		return
-	}
-
-	check_exist := func(name string) bool {
-		for _, image := range *exists_image {
-			if image.Name == name {
-				return true
-			}
-		}
-		return false
-	}
-
-	for _, image := range images {
-		if !check_exist(image) {
-			_, err := DockerPullImage(c, image, message_callback)
-			if err != nil {
-				response.Res = -1
-				response.Err = "拉取镜像失败"
-				response_text, _ := json.Marshal(response)
-				request.FinishRequest(request_id, string(response_text))
-				return
-			}
-		}
-	}
-
-	response.Res = 1
-	response.Data = ""
-	response.Err = ""
-	response_text, _ := json.Marshal(response)
-	request.FinishRequest(request_id, string(response_text))
-}
-
-func (c *Docker) StartSyncImage(images []string) (string, error) {
-	if !docker_sync_lock.TryLock() {
-		return "", errors.New("docker sync is running")
-	}
-
-	request_id := request.CreateNewResponse()
-	go c.syncImage(request_id, images)
-	docker_sync_request_id = request_id
-	return request_id, nil
-}
-
-func (c *Docker) CheckSyncStatus() (string, error) {
-	if !docker_sync_lock.TryLock() {
-		return docker_sync_request_id, nil
-	}
-	docker_sync_lock.Unlock()
-	return "", errors.New("no sync")
-}
-
-/* Get message from docker image sync task */
-func (c *Docker) GetSyncMessage() string {
-	if docker_sync_lock.TryLock() {
-		docker_sync_lock.Unlock()
-		return ""
-	}
-	res, ok := request.GetResponse(docker_sync_request_id)
-	if !ok {
-		return ""
-	}
-	return res
 }
 
 /*

@@ -505,6 +505,130 @@ func ListImage(req types.RequestListImage, timeout time.Duration) (types.Respons
 	}, nil
 }
 
+func PullImage(req types.RequestPullImage, timeout time.Duration, message_callback func(string)) (types.ResponseFinalPullImageStatus, error) {
+	if req.ClientID == "" {
+		return types.ResponseFinalPullImageStatus{}, errors.New("client id is empty")
+	}
+
+	client := server.GetClient(req.ClientID)
+	if client == nil {
+		return types.ResponseFinalPullImageStatus{
+			ClientID: req.ClientID,
+			Error:    "client not found",
+		}, errors.New("client not found")
+	}
+
+	start := time.Now()
+
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponsePullImage]](
+		client.GenerateClientURI(router.URI_CLIENT_PULL_IMAGE),
+		helper.HttpTimeout(timeout.Milliseconds()),
+		helper.HttpPayloadJson(req),
+	)
+	if err != nil {
+		return types.ResponseFinalPullImageStatus{
+			ClientID: req.ClientID,
+			Error:    err.Error(),
+		}, err
+	}
+
+	if resp.Code != 0 {
+		return types.ResponseFinalPullImageStatus{}, errors.New(resp.Message)
+	}
+
+	if resp.Data.Error != "" {
+		return types.ResponseFinalPullImageStatus{
+			ClientID: req.ClientID,
+			Error:    resp.Data.Error,
+		}, errors.New(resp.Data.Error)
+	}
+
+	// recycler to check the status of container
+	timer := time.NewTimer(timeout - time.Since(start))
+	defer timer.Stop()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return types.ResponseFinalPullImageStatus{}, errors.New("timeout")
+		case <-ticker.C:
+			resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseCheckPullImage]](
+				client.GenerateClientURI(router.URI_CLIENT_PULL_IMAGE_CHECK),
+				helper.HttpTimeout(2000),
+				helper.HttpPayloadJson(types.RequestCheckPullImage{
+					ClientID:          client.ClientID,
+					MessageResponseId: resp.Data.MessageResponseId,
+					FinishResponseID:  resp.Data.FinishResponseID,
+				}),
+			)
+			if err != nil {
+				return types.ResponseFinalPullImageStatus{}, err
+			}
+			if resp.Code != 0 {
+				return types.ResponseFinalPullImageStatus{}, errors.New(resp.Message)
+			}
+			if resp.Data.ClientID != client.ClientID {
+				return types.ResponseFinalPullImageStatus{}, errors.New("client id not match")
+			}
+			if resp.Data.Error != "" {
+				return types.ResponseFinalPullImageStatus{}, errors.New(resp.Data.Error)
+			}
+			if resp.Data.Message != "" {
+				message_callback(resp.Data.Message)
+			}
+			if !resp.Data.Finished {
+				continue
+			}
+			return types.ResponseFinalPullImageStatus{
+				ClientID: req.ClientID,
+				Error:    "",
+			}, nil
+		}
+	}
+}
+
+func DeleteImage(req types.RequestDeleteImage, timeout time.Duration) (types.ResponseDeleteImage, error) {
+	if req.ClientID == "" {
+		return types.ResponseDeleteImage{}, errors.New("client id is empty")
+	}
+
+	client := server.GetClient(req.ClientID)
+	if client == nil {
+		return types.ResponseDeleteImage{
+			ClientID: req.ClientID,
+			Error:    "client not found",
+		}, errors.New("client not found")
+	}
+
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseDeleteImage]](
+		client.GenerateClientURI(router.URI_CLIENT_DELETE_IMAGE),
+		helper.HttpTimeout(timeout.Milliseconds()),
+		helper.HttpPayloadJson(req),
+	)
+	if err != nil {
+		return types.ResponseDeleteImage{
+			ClientID: req.ClientID,
+			Error:    err.Error(),
+		}, err
+	}
+
+	if resp.Code != 0 {
+		return types.ResponseDeleteImage{}, errors.New(resp.Message)
+	}
+
+	if resp.Data.Error != "" {
+		return types.ResponseDeleteImage{
+			ClientID: req.ClientID,
+			Error:    resp.Data.Error,
+		}, errors.New(resp.Data.Error)
+	}
+
+	return types.ResponseDeleteImage{
+		ClientID: req.ClientID,
+	}, nil
+}
+
 func GetNodes() ([]server.ClientItem, error) {
 	clients := server.GetNodes()
 	return clients, nil

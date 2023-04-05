@@ -18,4 +18,7 @@ func Setup(eng *gin.Engine) {
 	eng.POST(router.URI_CLIENT_EXEC_CONTAINER, client.HandleExecContainer)
 	eng.GET(router.URI_CLIENT_LIST_IMAGE, client.HandleListImage)
 	eng.POST(router.URI_CLIENT_INSPECT_CONTAINER, client.HandleInspectContainers)
+	eng.POST(router.URI_CLIENT_PULL_IMAGE, client.HandlePullImage)
+	eng.GET(router.URI_CLIENT_PULL_IMAGE_CHECK, client.HandleCheckPullImage)
+	eng.POST(router.URI_CLIENT_DELETE_IMAGE, client.HandleDeleteImage)
 }
