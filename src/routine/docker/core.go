@@ -624,9 +624,9 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisa
 /*
 Create a new docker virtual network
 */
-func (c *Docker) CreateNetwork(subnet string, name string, host_join bool) error {
+func (c *Docker) CreateNetwork(subnet string, name string, internal bool, driver string) error {
 	_, err := c.Client.NetworkCreate(*c.Ctx, name, types.NetworkCreate{
-		Driver:         "overlay",
+		Driver:         driver,
 		CheckDuplicate: true,
 		IPAM: &network.IPAM{
 			Config: []network.IPAMConfig{
@@ -637,7 +637,7 @@ func (c *Docker) CreateNetwork(subnet string, name string, host_join bool) error
 		},
 		EnableIPv6: false,
 		// if host_join is true, the host will join the network, otherwise the host will not join the network
-		Internal:   !host_join,
+		Internal:   internal,
 		Attachable: true,
 	})
 	if err != nil {

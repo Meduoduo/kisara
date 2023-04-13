@@ -129,7 +129,7 @@ func HandleCreateSubnet(r *gin.Context) {
 			resp := &types.ResponseCreateNetwork{}
 			resp.ClientID = rc.ClientID
 			docker := docker.NewDocker()
-			err := docker.CreateNetwork(rc.Subnet, rc.Name, rc.HostJoin)
+			err := docker.CreateNetwork(rc.Subnet, rc.Name, rc.Internal, rc.Driver)
 			if err != nil {
 				return types.ErrorResponse(-500, err.Error())
 			}

@@ -318,8 +318,10 @@ type RequestCreateNetwork struct {
 	Subnet string `json:"subnet"`
 	// Name is the name of the container
 	Name string `json:"name"`
-	// HostJoin is the host join of the container
-	HostJoin bool `json:"host_join"`
+	// Internal is the host join of the container
+	Internal bool `json:"internal"`
+	// Driver
+	Driver string `json:"driver"`
 }
 
 type ResponseCreateNetwork struct {
