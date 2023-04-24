@@ -11,18 +11,18 @@ package main
 
 import (
 	"strings"
+	"time"
 
-	"github.com/Yeuoly/kisara/src/helper"
+	"github.com/Yeuoly/kisara/src/client"
 	docker "github.com/Yeuoly/kisara/src/routine/docker"
-	takina "github.com/Yeuoly/kisara/src/routine/takina"
 )
 
 func main() {
-	helper.InitServerConfig()
-	takina.InitTakina()
-	docker.InitDocker()
-
+	go client.Main()
+	time.Sleep(time.Second * 10)
 	testTrain()
+
+	select {}
 }
 
 func testTrain() {
@@ -39,4 +39,9 @@ func testTrain() {
 		panic(err)
 	}
 
+	// stop container
+	// err = client.StopContainer(container.Id)
+	// if err != nil {
+	// 	panic(err)
+	// }
 }

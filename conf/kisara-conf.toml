@@ -9,12 +9,11 @@ port = 25570
 network_in = 52428800 # 50Mbps
 network_out = 52428800 # 50Mbps
 max_container = 80 # max container number
+db_path = "db/kisara.db" # database path
 
 [kisaraServer]
 address = "159.75.81.96" # for client, which master should it connect to
 port = 7474
 
 [takina]
-address = "127.0.0.1"
-port = 7272
-token = "Takina"
+token = "testtest"

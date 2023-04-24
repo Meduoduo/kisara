@@ -1,4 +1,4 @@
-package routine
+package docker
 
 import (
 	"context"
@@ -11,16 +11,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Yeuoly/Takina/src/api"
 	"github.com/Yeuoly/kisara/src/helper"
+	"github.com/Yeuoly/kisara/src/routine/db"
 	log "github.com/Yeuoly/kisara/src/routine/log"
-	takina "github.com/Yeuoly/kisara/src/routine/takina"
 	kisara_types "github.com/Yeuoly/kisara/src/types"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -31,9 +31,10 @@ type Docker struct {
 
 type portMapping struct {
 	ContainerInnerPort int    `json:"container_inner_port"`
+	Laddr              string `json:"laddr"`
 	Lport              int    `json:"lport"`
 	Rport              int    `json:"rport"`
-	Raddress           string `json:"raddress"`
+	Raddr              string `json:"raddress"`
 	Protocol           string `json:"protocol"`
 }
 
@@ -143,7 +144,7 @@ func InitDocker() {
 		if container.Labels["irina"] == "true" {
 			err := c.StopContainer(container.ID)
 			if err != nil {
-				panic("[docker] stop docker container failed")
+				log.Error("[docker] stop docker container failed")
 			}
 		} else {
 			if !strings.Contains(container.Status, "Exit") {
@@ -152,6 +153,32 @@ func InitDocker() {
 			}
 		}
 	}
+
+	networks, err := c.Client.NetworkList(*c.Ctx, types.NetworkListOptions{})
+	if err != nil {
+		log.Panic("[docker] init docker failed")
+	}
+
+	kisara_networks := make([]kisara_types.Network, 0)
+
+	for _, network := range networks {
+		if len(network.IPAM.Config) == 0 {
+			continue
+		}
+
+		kisara_network := kisara_types.Network{
+			Name:     network.Name,
+			Id:       network.ID,
+			Subnet:   network.IPAM.Config[0].Subnet,
+			Internal: network.Internal,
+			Driver:   network.Driver,
+			Scope:    network.Scope,
+		}
+
+		kisara_networks = append(kisara_networks, kisara_network)
+	}
+
+	callOnDockerDaemonStartHooks(NewDocker(), kisara_networks)
 
 	log.Info("[docker] init docker finished")
 }
@@ -216,16 +243,26 @@ func (c *Docker) PullImage(image_name string, event_callback func(message string
 	return &image, nil
 }
 
-func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
+func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_names []string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
 	log.Info("[docker] start launch container:" + image.Name)
 
 	// check if subnet exists
-	subnet_instance, err := c.GetNetworkByName(subnet_name)
-	if err != nil {
-		return nil, err
+	endpoints := make(map[string]*network.EndpointSettings)
+	for _, subnet_name := range subnet_names {
+		subnet_instance, err := c.GetNetworkByName(subnet_name)
+		if err != nil {
+			return nil, err
+		}
+
+		endpoints[subnet_name] = &network.EndpointSettings{
+			NetworkID: subnet_instance.Id,
+		}
 	}
 
-	subnet_id := subnet_instance.Id
+	default_network_name := "bridge"
+	if len(subnet_names) > 0 {
+		default_network_name = subnet_names[0]
+	}
 
 	/*
 		date: 2022/11/19 author: Yeuoly
@@ -233,63 +270,6 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 		but at the last version, docker.ContainerCreate only support one port protocol
 		therefore, '80/tcp' will be changed to '80/tcp,123/tcp'
 	*/
-
-	port_protocols := strings.Split(port_protocol, ",")
-	port_mappings := make([]portMapping, len(port_protocols))
-
-	release := func() {
-		for _, port_mapping := range port_mappings {
-			if port_mapping.Rport != 0 {
-				takina.TakinaRequestDelProxy("127.0.0.1", port_mapping.Lport)
-			}
-		}
-	}
-
-	for i, port_protocol := range port_protocols {
-		port, err := helper.GetAvaliablePort()
-		if err != nil {
-			release()
-			return nil, err
-		}
-
-		//request launch proxy, protocol_port likes 80/tcp
-		protocol_ports := strings.Split(port_protocol, "/")
-		if len(protocol_ports) != 2 {
-			release()
-			return nil, errors.New("protocol_port error")
-		}
-
-		port_mappings[i].Protocol = protocol_ports[1]
-		r_addr, r_port, err := takina.TakinaRequestAddProxy("127.0.0.1", port, protocol_ports[1])
-		if err != nil {
-			release()
-			return nil, err
-		}
-
-		port_mappings[i].ContainerInnerPort, _ = strconv.Atoi(protocol_ports[0])
-		port_mappings[i].Rport = r_port
-		port_mappings[i].Lport = port
-		port_mappings[i].Raddress = r_addr
-	}
-
-	// container label
-	host_port := ""
-	if len(port_mappings) > 0 {
-		host_port = port_mappings[0].Raddress + ":" + strconv.Itoa(port_mappings[0].Rport)
-		for i := 1; i < len(port_mappings); i++ {
-			host_port += "," + port_mappings[i].Raddress + ":" + strconv.Itoa(port_mappings[i].Rport)
-		}
-	}
-
-	port_map := make(nat.PortMap)
-	for _, port_mapping := range port_mappings {
-		port_map[nat.Port(strconv.Itoa(port_mapping.ContainerInnerPort)+"/"+port_mapping.Protocol)] = []nat.PortBinding{
-			{
-				HostIP:   "0.0.0.0",
-				HostPort: strconv.Itoa(port_mapping.Lport),
-			},
-		}
-	}
 
 	//create env
 	envs := []string{}
@@ -315,9 +295,6 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 		}
 	}
 
-	json_port_mappings, _ := json.Marshal(port_mappings)
-
-	//networkMode := "none"
 	uuid := uuid.NewV4().String()
 	resp, err := c.Client.ContainerCreate(
 		*c.Ctx,
@@ -333,14 +310,11 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 				"uuid":      uuid,
 				"module":    module,
 				"irina":     "true",
-				"port_map":  string(json_port_mappings),
-				"host_port": host_port,
 			},
 		},
 		&container.HostConfig{
-			NetworkMode:  container.NetworkMode(subnet_name),
-			PortBindings: port_map,
-			Mounts:       mounts,
+			NetworkMode: container.NetworkMode(default_network_name),
+			Mounts:      mounts,
 			Resources: container.Resources{
 				//set max memory to 2GB
 				Memory: 2 * 1024 * 1024 * 1024,
@@ -352,11 +326,7 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 			DNS: []string{docker_dns},
 		},
 		&network.NetworkingConfig{
-			EndpointsConfig: map[string]*network.EndpointSettings{
-				"kisara": {
-					NetworkID: subnet_id,
-				},
-			},
+			EndpointsConfig: endpoints,
 		}, nil, uuid,
 	)
 
@@ -364,27 +334,146 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 		return nil, err
 	}
 
-	container := kisara_types.Container{
-		Id:       resp.ID,
-		Image:    image.Name,
-		Owner:    uid,
-		Time:     int(time.Now().Unix()),
-		Uuid:     uuid,
-		HostPort: host_port,
+	remove_container := func() {
+		err := c.Client.ContainerRemove(*c.Ctx, resp.ID, types.ContainerRemoveOptions{
+			Force: true,
+		})
+		if err != nil {
+			log.Warn("[docker] remove container error: " + err.Error())
+		}
 	}
 
 	err = c.Client.ContainerStart(*c.Ctx, resp.ID, types.ContainerStartOptions{})
-
 	if err != nil {
+		remove_container()
 		log.Warn("[docker] start container error: " + err.Error())
 		return nil, err
 	}
 
-	log.Info("[docker] launch docker successfully: " + container.Id)
+	stop_container := func() {
+		err := c.Client.ContainerStop(*c.Ctx, resp.ID, container.StopOptions{})
+		if err != nil {
+			log.Warn("[docker] stop container error: " + err.Error())
+		}
+	}
 
-	go attachMonitor(container.Id)
+	kisara_container := kisara_types.Container{
+		Id:    resp.ID,
+		Image: image.Name,
+		Owner: uid,
+		Time:  int(time.Now().Unix()),
+		Uuid:  uuid,
+	}
 
-	return &container, nil
+	// inspect container to get ip
+	inspect, err := c.Client.ContainerInspect(*c.Ctx, resp.ID)
+	if err != nil {
+		stop_container()
+		remove_container()
+		log.Warn("[docker] inspect container error: " + err.Error())
+		return nil, err
+	}
+
+	// get at least one ip
+	container_default_ip := ""
+	for _, network := range inspect.NetworkSettings.Networks {
+		container_default_ip = network.IPAddress
+	}
+
+	// parse port protocol
+	host_port := ""
+	port_protocols := strings.Split(port_protocol, ",")
+	port_mappings := make([]portMapping, len(port_protocols))
+
+	release := func() {
+		for _, port_mapping := range port_mappings {
+			if port_mapping.Rport != 0 {
+				_, err := api.StopProxy(port_mapping.Laddr, port_mapping.Lport)
+				if err != nil {
+					log.Warn("[docker] stop proxy %s:%d error: %s", port_mapping.Laddr, port_mapping.Lport, err.Error())
+				}
+			}
+		}
+	}
+
+	for i, port_protocol := range port_protocols {
+		//request launch proxy, protocol_port likes 80/tcp
+		protocol_ports := strings.Split(port_protocol, "/")
+		if len(protocol_ports) != 2 {
+			release()
+			stop_container()
+			remove_container()
+			return nil, errors.New("protocol_port error")
+		}
+
+		protocol := protocol_ports[1]
+		port, err := strconv.Atoi(protocol_ports[0])
+		if err != nil {
+			release()
+			stop_container()
+			remove_container()
+			return nil, errors.New("protocol_port format with port error")
+		}
+
+		port_mappings[i].Protocol = protocol_ports[1]
+		resp, err := api.StartProxy(container_default_ip, port, protocol)
+		if err != nil {
+			release()
+			stop_container()
+			remove_container()
+			return nil, err
+		}
+
+		r_addr := resp.Proxy.Raddr
+		r_port := resp.Proxy.Rport
+		host_port += fmt.Sprintf("%s/%s:%d->%s:%d,", protocol, container_default_ip, port, r_addr, r_port)
+
+		log.Info("[docker] start proxy %s:%d -> %s:%d", container_default_ip, port, r_addr, r_port)
+
+		port_mappings[i].ContainerInnerPort, _ = strconv.Atoi(protocol_ports[0])
+		port_mappings[i].Laddr = container_default_ip
+		port_mappings[i].Lport = port
+		port_mappings[i].Rport = r_port
+		port_mappings[i].Raddr = r_addr
+	}
+
+	kisara_container.HostPort = host_port
+
+	port_map_str, _ := json.Marshal(port_mappings)
+	labels := map[string]string{
+		"owner_uid": strconv.Itoa(uid),
+		"uuid":      uuid,
+		"module":    module,
+		"irina":     "true",
+		"port_map":  string(port_map_str),
+		"host_port": host_port,
+	}
+	labels_str, _ := json.Marshal(labels)
+
+	// create db record
+	db_container := &kisara_types.KisaraContainer{
+		ContainerName: kisara_container.Uuid,
+		ContainerId:   kisara_container.Id,
+		Image:         kisara_container.Image,
+		Uid:           kisara_container.Owner,
+		Labels:        string(labels_str),
+	}
+
+	err = db.CreateGeneric(db_container)
+	if err != nil {
+		log.Warn("[docker] create db record error: " + err.Error())
+		release()
+		stop_container()
+		remove_container()
+		return nil, err
+	}
+
+	log.Info("[docker] launch docker successfully: " + kisara_container.Id)
+
+	go attachMonitor(kisara_container.Id)
+	go callOnContainerLaunchHooks(c, kisara_container)
+
+	return &kisara_container, nil
 }
 
 func (c *Docker) CheckImageExist(image_name string) bool {
@@ -411,7 +500,7 @@ func (c *Docker) LaunchTargetMachine(image_name string, port_protocol string, su
 		User: "root",
 	}
 
-	container, err := c.CreateContainer(image, uid, port_protocol, subnet_name, module)
+	container, err := c.CreateContainer(image, uid, port_protocol, []string{subnet_name}, module)
 	if err != nil {
 		log.Warn("[docker] create container failed: " + err.Error())
 		return nil, err
@@ -428,7 +517,7 @@ func (c *Docker) LaunchContainer(image_name string, uid int, port_protocol strin
 		User: "root",
 	}
 
-	container, err := c.CreateContainer(image, uid, port_protocol, subnet_name, module, env_mount...)
+	container, err := c.CreateContainer(image, uid, port_protocol, []string{subnet_name}, module, env_mount...)
 	if err != nil {
 		log.Warn("[docker] create container failed: " + err.Error())
 		return nil, err
@@ -446,7 +535,7 @@ func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, su
 	}
 
 	//创建容器并留下记录
-	container, err := c.CreateContainer(image, uid, port_protocols, subnet_name, "awd", env)
+	container, err := c.CreateContainer(image, uid, port_protocols, []string{subnet_name}, "awd", env)
 	if err != nil {
 		log.Warn("[docker] create AWD container failed: " + err.Error())
 		return nil, err
@@ -460,10 +549,36 @@ func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, su
 func (c *Docker) StopContainer(id string) error {
 	log.Info("[docker] stop conatiner: " + id)
 	//get container labels
-	_container, err := c.Client.ContainerInspect(*c.Ctx, id)
+	inspect_container, err := c.Client.ContainerInspect(*c.Ctx, id)
+	owner_id, _ := strconv.Atoi(inspect_container.Config.Labels["owner_uid"])
+	kisara_container := kisara_types.Container{
+		Id:    id,
+		Image: inspect_container.Config.Image,
+		Uuid:  inspect_container.Config.Labels["uuid"],
+		Owner: owner_id,
+	}
 	if err == nil {
+		// get db container
+		container, err := db.GetGenericOne[kisara_types.KisaraContainer](
+			db.GenericEqual("container_id", id),
+		)
+
+		if err != nil {
+			return errors.New("could not find container")
+		}
+
 		//delete proxy
-		port_map := _container.Config.Labels["port_map"]
+		labels_str := container.Labels
+		labels := make(map[string]string)
+
+		if err := json.Unmarshal([]byte(labels_str), &labels); err != nil {
+			return errors.New("could not unmarshal labels in db")
+		}
+
+		kisara_container.HostPort = labels["host_port"]
+		kisara_container.Labels = labels
+
+		port_map := labels["port_map"]
 		if port_map != "" {
 			var port_map_map []portMapping
 			err = json.Unmarshal([]byte(port_map), &port_map_map)
@@ -471,13 +586,18 @@ func (c *Docker) StopContainer(id string) error {
 				log.Warn("[docker] unmarshal port map failed: " + err.Error())
 			} else {
 				for _, port := range port_map_map {
-					err = takina.TakinaRequestDelProxy("127.0.0.1", port.Lport)
+					_, err := api.StopProxy(port.Laddr, port.Lport)
 					if err != nil {
 						log.Warn("[docker] delete proxy failed: " + err.Error())
+					} else {
+						log.Info("[docker] delete proxy %s:%d successfully", port.Laddr, port.Lport)
 					}
 				}
 			}
 		}
+	} else {
+		log.Warn("[docker] inspect container failed: " + err.Error())
+		return err
 	}
 
 	err = c.Client.ContainerStop(*c.Ctx, id, container.StopOptions{})
@@ -485,6 +605,9 @@ func (c *Docker) StopContainer(id string) error {
 		return nil
 	}
 	err = c.Client.ContainerRemove(*c.Ctx, id, types.ContainerRemoveOptions{})
+	if err == nil {
+		callOnContainerStopHooks(c, kisara_container)
+	}
 
 	return err
 }
@@ -516,8 +639,7 @@ func (c *Docker) Exec(container_id string, cmd string) error {
 		return err
 	}
 
-	res, err := io.ReadAll(resp.Reader)
-	fmt.Println(string(res))
+	_, err = io.ReadAll(resp.Reader)
 
 	if err != nil {
 		return err
@@ -537,14 +659,25 @@ func (c *Docker) ListContainer() (*[]*kisara_types.Container, error) {
 
 	var container_list []*kisara_types.Container
 	for _, container := range containers {
+		labels := make(map[string]string)
+
+		db_container, err := db.GetGenericOne[kisara_types.KisaraContainer](
+			db.GenericEqual("container_id", container.ID),
+		)
+
+		if err == nil {
+			labels_str := db_container.Labels
+			json.Unmarshal([]byte(labels_str), &labels)
+		}
+
 		owner_uid, _ := strconv.Atoi(container.Labels["owner_uid"])
 		container_list = append(container_list, &kisara_types.Container{
 			Id:       container.ID,
 			Image:    container.Image,
 			Owner:    owner_uid,
 			Time:     int(container.Created),
-			Uuid:     container.Labels["uuid"],
-			HostPort: container.Labels["host_port"],
+			Uuid:     labels["uuid"],
+			HostPort: labels["host_port"],
 			Status:   container.Status,
 		})
 	}
@@ -607,11 +740,26 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisa
 		}
 	}
 
+	db_container, err := db.GetGenericOne[kisara_types.KisaraContainer](
+		db.GenericEqual("container_id", container_id),
+	)
+
+	if err != nil {
+		return nil, errors.New("unable to find container in kisara db")
+	}
+
+	labels_str := db_container.Labels
+	labels := make(map[string]string)
+
+	if err := json.Unmarshal([]byte(labels_str), &labels); err != nil {
+		return nil, errors.New("could not unmarshal labels in db")
+	}
+
 	ret := &kisara_types.Container{
 		Id:       container.ID,
 		HostPort: container.Config.Labels["host_port"],
 		Status:   container.Config.Labels["status"],
-		Labels:   container.Config.Labels,
+		Labels:   labels,
 		// cpu usage
 		// memory usage
 		CPUUsage: cpu_usage,
@@ -643,6 +791,17 @@ func (c *Docker) CreateNetwork(subnet string, name string, internal bool, driver
 	if err != nil {
 		return err
 	}
+
+	network := kisara_types.Network{
+		Name:     name,
+		Subnet:   subnet,
+		Internal: internal,
+		Driver:   driver,
+		Scope:    "swarm",
+	}
+
+	callOnNetworkCreateHooks(c, network)
+
 	return nil
 }
 
@@ -650,10 +809,33 @@ func (c *Docker) CreateNetwork(subnet string, name string, internal bool, driver
 Delete a docker virtual network
 */
 func (c *Docker) DeleteNetwork(network_id string) error {
-	err := c.Client.NetworkRemove(*c.Ctx, network_id)
+	// inspect network
+	net, err := c.Client.NetworkInspect(*c.Ctx, network_id, types.NetworkInspectOptions{})
 	if err != nil {
 		return err
 	}
+
+	if len(net.IPAM.Config) == 0 {
+		return errors.New("network does not have subnet")
+	}
+
+	network := kisara_types.Network{
+		Name:     net.Name,
+		Subnet:   net.IPAM.Config[0].Subnet,
+		Internal: net.Internal,
+		Driver:   net.Driver,
+		Scope:    net.Scope,
+	}
+
+	callBeforeNetworkRemoveHooks(c, network)
+
+	err = c.Client.NetworkRemove(*c.Ctx, network_id)
+	if err != nil {
+		return err
+	}
+
+	callOnNetworkRemoveHooks(c, network)
+
 	return nil
 }
 
@@ -711,4 +893,26 @@ func (c *Docker) GetContainerNumber() (int, error) {
 		return 0, err
 	}
 	return len(containers), nil
+}
+
+/*
+Connect a container to a network
+*/
+func (c *Docker) ConnectContainerToNetwork(container_id string, network_id string) error {
+	err := c.Client.NetworkConnect(*c.Ctx, network_id, container_id, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+/*
+Disconnect a container from a network
+*/
+func (c *Docker) DisconnectContainerFromNetwork(container_id string, network_id string) error {
+	err := c.Client.NetworkDisconnect(*c.Ctx, network_id, container_id, true)
+	if err != nil {
+		return err
+	}
+	return nil
 }
