@@ -6,4 +6,5 @@ Kisara 是一个用于CTF/AWD等竞赛的Docker集群管理工具，现在尚处
 
 ## Kisara的由来
 因为Irina（伊蕾娜）项目中需要对Docker管理进行解耦，同时需要接入集群，使用Irina原本的单机Docker是无法实现的，因此有了Kisara，
-同时Kisara使用了Takina（泷奈）来实现灵活的内网穿透从而暴露靶机服务，请确保配置了 `/conf/takina_client.yaml` 文件，并且确保Takina服务端启动
+同时Kisara使用了Takina（泷奈）来实现灵活的内网穿透从而暴露靶机服务，请确保配置了 `/conf/takina_client.yaml` 文件，并且确保Takina服务启动，详细信息请查看 [https://github.com/Yeuoly/Takina](https://github.com/Yeuoly/Takina)
+
