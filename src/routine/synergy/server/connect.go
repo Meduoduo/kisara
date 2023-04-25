@@ -19,6 +19,7 @@ import (
 
 var clientMap sync.Map
 var containerMap sync.Map
+var serviceMap sync.Map
 
 var waitConnectionChan = make(chan types.RequestConnect, 100)
 
@@ -35,17 +36,27 @@ type ContainerItem struct {
 	Container   *types.Container
 }
 
+type ServiceItem struct {
+	ClientId  string
+	ServiceId string
+	Service   *types.Service
+}
+
 type KisaraOnNodeConnect func(client_id string, client *types.Client)
 type KisaraOnNodeDisconnect func(client_id string, client *types.Client)
 type KisaraOnNodeHeartBeat func(client_id string, client *types.Client, status *types.ClientStatus)
 type KisaraOnNodeLaunchContainer func(client_id string, client *types.Client, container *types.Container)
 type KisaraOnNodeStopContainer func(client_id string, client *types.Client, container *types.Container)
+type KisaraOnServiceStart func(service_id string, service *types.Service)
+type KisaraOnServiceStop func(service_id string, service *types.Service)
 
 var onNodeConnect []KisaraOnNodeConnect
 var onNodeDisconnect []KisaraOnNodeDisconnect
 var onNodeHeartBeat []KisaraOnNodeHeartBeat
 var onNodeLaunchContainer []KisaraOnNodeLaunchContainer
 var onNodeStopContainer []KisaraOnNodeStopContainer
+var onServiceStart []KisaraOnServiceStart
+var onServiceStop []KisaraOnServiceStop
 
 func RegisterOnNodeConnect(f KisaraOnNodeConnect) {
 	onNodeConnect = append(onNodeConnect, f)
@@ -67,6 +78,14 @@ func RegisterOnNodeStopContainer(f KisaraOnNodeStopContainer) {
 	onNodeStopContainer = append(onNodeStopContainer, f)
 }
 
+func RegisterOnServiceStart(f KisaraOnServiceStart) {
+	onServiceStart = append(onServiceStart, f)
+}
+
+func RegisterOnServiceStop(f KisaraOnServiceStop) {
+	onServiceStop = append(onServiceStop, f)
+}
+
 func UnsetOnNodeConnect() {
 	onNodeConnect = []KisaraOnNodeConnect{}
 }
@@ -85,6 +104,14 @@ func UnsetOnNodeLaunchContainer() {
 
 func UnsetOnNodeStopContainer() {
 	onNodeStopContainer = []KisaraOnNodeStopContainer{}
+}
+
+func UnsetOnServiceStart() {
+	onServiceStart = []KisaraOnServiceStart{}
+}
+
+func UnsetOnServiceStop() {
+	onServiceStop = []KisaraOnServiceStop{}
 }
 
 func AddContainer(container_id string, client_id string, container *types.Container) {
@@ -131,6 +158,43 @@ func DeleteContainer(container_id string) {
 			if client != nil {
 				f(client_id, client, container)
 			}
+		}
+	}
+}
+
+func AddService(service_id string, client_id string, service *types.Service) {
+	serviceMap.Store(service_id, &ServiceItem{
+		ClientId:  client_id,
+		ServiceId: service_id,
+		Service:   service,
+	})
+	for _, f := range onServiceStart {
+		f(service_id, service)
+	}
+}
+
+func GetService(service_id string) (*types.Service, string, error) {
+	if service, ok := serviceMap.Load(service_id); ok {
+		return service.(*ServiceItem).Service, service.(*ServiceItem).ClientId, nil
+	}
+	return nil, "", errors.New("service not found")
+}
+
+func FlushService(client_id string) {
+	serviceMap.Range(func(key, value interface{}) bool {
+		if value.(*ServiceItem).ClientId == client_id {
+			DeleteService(value.(*ServiceItem).ServiceId)
+		}
+		return true
+	})
+}
+
+func DeleteService(service_id string) {
+	serviceMap.Delete(service_id)
+	for _, f := range onServiceStop {
+		service, _, err := GetService(service_id)
+		if err == nil {
+			f(service_id, service)
 		}
 	}
 }

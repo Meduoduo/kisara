@@ -340,3 +340,142 @@ func HandleExecContainer(r *gin.Context) {
 		}))
 	})
 }
+
+type launchServiceResponseFormat struct {
+	Error    string        `json:"error"`
+	Finished bool          `json:"finished"`
+	Service  types.Service `json:"service"`
+}
+
+func HandleLaunchService(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestLaunchService) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseLaunchService{}
+			resp.ClientID = rc.ClientID
+			docker := docker.NewDocker()
+			message_response_id := request.CreateNewResponse()
+			finish_response_id := request.CreateNewResponse()
+			go func() {
+				service, err := docker.CreateService(rc.ServiceConfig, func(message string) {
+					request.SetRequestStatusText(message_response_id, message)
+				})
+				if err != nil {
+					request.FinishRequest(finish_response_id, jsonHelperEncoder(launchServiceResponseFormat{
+						Error:    err.Error(),
+						Finished: true,
+					}))
+					request.FinishRequest(message_response_id, "service launch failed")
+				} else {
+					request.FinishRequest(finish_response_id, jsonHelperEncoder(launchServiceResponseFormat{
+						Error:    "",
+						Finished: true,
+						Service:  *service,
+					}))
+					request.FinishRequest(message_response_id, "service launch finished")
+				}
+			}()
+			resp.MessageResponseId = message_response_id
+			resp.FinishResponseID = finish_response_id
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleCheclLaunchService(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestCheckLaunchService) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseCheckLaunchService{}
+			resp.ClientID = rc.ClientID
+
+			finished_response_text, finish := request.GetResponse(rc.FinishResponseID)
+			message_response_text, _ := request.GetResponse(rc.MessageResponseId)
+
+			resp.Finished = finish
+			resp.Message = message_response_text
+			if finish {
+				response := jsonHelperDecoder[launchServiceResponseFormat](finished_response_text)
+				resp.Error = response.Error
+				resp.Service = response.Service
+			}
+
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleListService(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestListService) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseListService{}
+			resp.ClientID = rc.ClientID
+			docker := docker.NewDocker()
+			services, err := docker.ListServices()
+			if err != nil {
+				return types.ErrorResponse(-500, err.Error())
+			}
+			if services == nil {
+				return types.ErrorResponse(-500, "An unexpected error occurred, services is nil")
+			}
+			for _, service := range services {
+				if service != nil {
+					resp.Services = append(resp.Services, *service)
+				}
+			}
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+type stopServiceResponseFormat struct {
+	Error    string `json:"error"`
+	Finished bool   `json:"finished"`
+}
+
+func HandleStopService(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestStopService) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseStopService{}
+			resp.ClientID = rc.ClientID
+
+			response_id := request.CreateNewResponse()
+			resp.ResponseID = response_id
+
+			docker := docker.NewDocker()
+
+			go func() {
+				err := docker.DeleteService(rc.ServiceID)
+				if err != nil {
+					request.FinishRequest(response_id, jsonHelperEncoder(stopServiceResponseFormat{
+						Error:    err.Error(),
+						Finished: true,
+					}))
+				} else {
+					request.FinishRequest(response_id, jsonHelperEncoder(stopServiceResponseFormat{
+						Error:    "",
+						Finished: true,
+					}))
+				}
+			}()
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleCheckStopService(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestCheckStopService) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseCheckStopService{}
+			resp.ClientID = rc.ClientID
+
+			finished_response_text, finish := request.GetResponse(rc.ResponseID)
+
+			resp.Finished = finish
+			if finish {
+				response := jsonHelperDecoder[stopServiceResponseFormat](finished_response_text)
+				resp.Error = response.Error
+			}
+
+			return types.SuccessResponse(resp)
+		}))
+	})
+}

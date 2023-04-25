@@ -47,10 +47,17 @@ type ServiceFlag struct {
 
 // Service is the service kisara generated for the user
 type Service struct {
+	Id         string        `json:"id"`
+	Name       string        `json:"name"`
 	Containers []Container   `json:"containers"`
 	Networks   []Network     `json:"networks"`
 	Flags      []ServiceFlag `json:"flags"`
+	Status     string        `json:"status"`
 }
+
+const (
+	SERVICE_STATUS_RUNNING = "running"
+)
 
 // Service is not the service in docker compose, it is the service config in kisara
 type KisaraService struct {

@@ -178,7 +178,7 @@ func InitDocker() {
 		kisara_networks = append(kisara_networks, kisara_network)
 	}
 
-	go callOnDockerDaemonStartHooks(NewDocker(), kisara_networks)
+	go callOnDockerDaemonStartHooks(c, kisara_networks)
 
 	log.Info("[docker] init docker finished")
 }
@@ -456,7 +456,7 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 	labels_str, _ := json.Marshal(labels)
 
 	// create db record
-	db_container := &kisara_types.KisaraContainer{
+	db_container := &kisara_types.DBContainer{
 		ContainerName: kisara_container.Uuid,
 		ContainerId:   kisara_container.Id,
 		Image:         kisara_container.Image,
@@ -582,7 +582,7 @@ func (c *Docker) StopContainer(id string) error {
 	}
 	if err == nil {
 		// get db container
-		container, err := db.GetGenericOne[kisara_types.KisaraContainer](
+		container, err := db.GetGenericOne[kisara_types.DBContainer](
 			db.GenericEqual("container_id", id),
 		)
 
@@ -684,7 +684,7 @@ func (c *Docker) ListContainer() (*[]*kisara_types.Container, error) {
 	for _, container := range containers {
 		labels := make(map[string]string)
 
-		db_container, err := db.GetGenericOne[kisara_types.KisaraContainer](
+		db_container, err := db.GetGenericOne[kisara_types.DBContainer](
 			db.GenericEqual("container_id", container.ID),
 		)
 
@@ -763,7 +763,7 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisa
 		}
 	}
 
-	db_container, err := db.GetGenericOne[kisara_types.KisaraContainer](
+	db_container, err := db.GetGenericOne[kisara_types.DBContainer](
 		db.GenericEqual("container_id", container_id),
 	)
 

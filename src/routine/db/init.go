@@ -27,7 +27,8 @@ func InitKisaraDB(db_path string) {
 }
 
 func registerModel() {
-	kisaraDB.AutoMigrate(&types.KisaraContainer{})
+	kisaraDB.AutoMigrate(&types.DBContainer{})
+	kisaraDB.AutoMigrate(&types.DBService{})
 }
 
 func CreateGeneric[T any](data *T) error {

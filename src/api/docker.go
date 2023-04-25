@@ -633,3 +633,221 @@ func GetNodes() ([]server.ClientItem, error) {
 	clients := server.GetNodes()
 	return clients, nil
 }
+
+func LaunchService(req types.RequestLaunchService, message_callback func(string), timeout time.Duration) (types.ResponseFinalLaunchServiceStatus, error) {
+	start := time.Now()
+	var client types.Client
+	var err error
+	// if client id is not set, then fetch the lowest demand client
+	if req.ClientID == "" {
+		client, err = server.FetchLowestDemandClient()
+		if err != nil {
+			return types.ResponseFinalLaunchServiceStatus{}, err
+		}
+		req.ClientID = client.ClientID
+	} else {
+		tmp := server.GetClient(req.ClientID)
+		if tmp == nil {
+			return types.ResponseFinalLaunchServiceStatus{}, errors.New("client not found")
+		}
+		client = *tmp
+	}
+
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseLaunchService]](
+		client.GenerateClientURI(router.URI_CLIENT_LAUNCH_SERVICE),
+		helper.HttpTimeout(timeout.Milliseconds()),
+		helper.HttpPayloadJson(req),
+	)
+	if err != nil {
+		return types.ResponseFinalLaunchServiceStatus{}, err
+	}
+
+	if resp.Code != 0 {
+		return types.ResponseFinalLaunchServiceStatus{}, errors.New(resp.Message)
+	}
+
+	if resp.Data.Error != "" {
+		return types.ResponseFinalLaunchServiceStatus{}, errors.New(resp.Data.Error)
+	}
+
+	message_response_id := resp.Data.MessageResponseId
+	if message_response_id == "" {
+		return types.ResponseFinalLaunchServiceStatus{}, errors.New("response id is empty, failed to launch service")
+	}
+	finish_response_id := resp.Data.FinishResponseID
+	if finish_response_id == "" {
+		return types.ResponseFinalLaunchServiceStatus{}, errors.New("finish response id is empty, failed to launch service")
+	}
+
+	// recycler to check the status of container
+	timer := time.NewTimer(timeout - time.Since(start))
+	defer timer.Stop()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return types.ResponseFinalLaunchServiceStatus{}, errors.New("timeout")
+		case <-ticker.C:
+			resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseCheckLaunchService]](
+				client.GenerateClientURI(router.URI_CLIENT_LAUNCH_SERVICE_CHECK),
+				helper.HttpTimeout(2000),
+				helper.HttpPayloadJson(types.RequestCheckLaunchService{
+					ClientID:          client.ClientID,
+					MessageResponseId: message_response_id,
+					FinishResponseID:  finish_response_id,
+				}),
+			)
+			if err != nil {
+				return types.ResponseFinalLaunchServiceStatus{}, err
+			}
+			if resp.Code != 0 {
+				return types.ResponseFinalLaunchServiceStatus{}, errors.New(resp.Message)
+			}
+			if resp.Data.ClientID != client.ClientID {
+				return types.ResponseFinalLaunchServiceStatus{}, errors.New("mismatched client")
+			}
+			if resp.Data.Error != "" {
+				return types.ResponseFinalLaunchServiceStatus{}, errors.New(resp.Data.Error)
+			}
+			if !resp.Data.Finished {
+				message_callback(resp.Data.Message)
+				continue
+			}
+			service := resp.Data.Service
+			for _, v := range service.Containers {
+				server.AddContainer(v.Id, client.ClientID, &v)
+			}
+			server.AddService(service.Id, client.ClientID, &service)
+			return types.ResponseFinalLaunchServiceStatus{
+				ClientID: client.ClientID,
+				Service:  resp.Data.Service,
+			}, nil
+		}
+	}
+}
+
+func StopService(req types.RequestStopService, timeout time.Duration) (types.ResponseStopContainer, error) {
+	start := time.Now()
+	var client types.Client
+	var err error
+	// if client id is not set, then fetch the lowest demand client
+	if req.ClientID == "" {
+		// try to find the client
+		_, client_id, err := server.GetService(req.ServiceID)
+		if err != nil {
+			return types.ResponseStopContainer{}, err
+		}
+		req.ClientID = client_id
+	}
+
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseStopService]](
+		client.GenerateClientURI(router.URI_CLIENT_STOP_SERVICE),
+		helper.HttpTimeout(timeout.Milliseconds()),
+		helper.HttpPayloadJson(req),
+	)
+	if err != nil {
+		return types.ResponseStopContainer{}, err
+	}
+
+	if resp.Code != 0 {
+		return types.ResponseStopContainer{}, errors.New(resp.Message)
+	}
+
+	if resp.Data.Error != "" {
+		return types.ResponseStopContainer{}, errors.New(resp.Data.Error)
+	}
+
+	response_id := resp.Data.ResponseID
+	if response_id == "" {
+		return types.ResponseStopContainer{}, errors.New("response id is empty, failed to launch service")
+	}
+
+	// recycler to check the status of container
+	timer := time.NewTimer(timeout - time.Since(start))
+	defer timer.Stop()
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return types.ResponseStopContainer{}, errors.New("timeout")
+		case <-ticker.C:
+			resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseCheckStopService]](
+				client.GenerateClientURI(router.URI_CLIENT_STOP_SERVICE_CHECK),
+				helper.HttpTimeout(2000),
+				helper.HttpPayloadJson(types.RequestCheckStopService{
+					ClientID:   client.ClientID,
+					ResponseID: response_id,
+				}),
+			)
+			if err != nil {
+				return types.ResponseStopContainer{}, err
+			}
+			if resp.Code != 0 {
+				return types.ResponseStopContainer{}, errors.New(resp.Message)
+			}
+			if resp.Data.ClientID != client.ClientID {
+				return types.ResponseStopContainer{}, errors.New("mismatched client")
+			}
+			if resp.Data.Error != "" {
+				return types.ResponseStopContainer{}, errors.New(resp.Data.Error)
+			}
+			if !resp.Data.Finished {
+				continue
+			}
+			service, _, err := server.GetService(req.ServiceID)
+			if err != nil {
+				return types.ResponseStopContainer{}, err
+			}
+			for _, v := range service.Containers {
+				server.DeleteContainer(v.Id)
+			}
+			return types.ResponseStopContainer{
+				ClientID: client.ClientID,
+				Error:    "",
+			}, nil
+		}
+	}
+}
+
+func ListServices(req types.RequestListService, timeout time.Duration) (types.ResponseListService, error) {
+	clients := []string{}
+
+	if req.ClientID == "" {
+		nodes := server.GetNodes()
+		for _, node := range nodes {
+			clients = append(clients, node.ClientID)
+		}
+	}
+
+	containers := []types.Service{}
+	for _, client_id := range clients {
+		client := server.GetClient(client_id)
+		if client == nil {
+			log.Warn("[Kisara-API] client %s not found", client_id)
+			continue
+		}
+
+		req.ClientID = client_id
+		resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseListService]](
+			client.GenerateClientURI(router.URI_CLIENT_LIST_SERVICE),
+			helper.HttpTimeout(timeout.Milliseconds()),
+			helper.HttpPayloadJson(req),
+		)
+		if err != nil {
+			return types.ResponseListService{}, err
+		}
+		if resp.Code != 0 {
+			return types.ResponseListService{}, errors.New(resp.Message)
+		}
+		if resp.Data.Error != "" {
+			return types.ResponseListService{}, errors.New(resp.Data.Error)
+		}
+		containers = append(containers, resp.Data.Services...)
+	}
+
+	return types.ResponseListService{
+		Services: containers,
+	}, nil
+}

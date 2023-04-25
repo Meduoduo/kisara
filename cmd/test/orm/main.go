@@ -24,7 +24,7 @@ func main() {
 }
 
 func _select() {
-	fmt.Println(db.GetGenericOne[types.KisaraContainer](
+	fmt.Println(db.GetGenericOne[types.DBContainer](
 		db.GenericEqual("container_id", "32aa660132df9ba21ca09161eb1d2abaec70b6df545016baf7ba619d0670b0fc"),
 	))
 }

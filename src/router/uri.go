@@ -20,4 +20,9 @@ const (
 	URI_CLIENT_PULL_IMAGE             = "/image/pull"             // pull image
 	URI_CLIENT_PULL_IMAGE_CHECK       = "/image/pull/check"       // pull image check
 	URI_CLIENT_DELETE_IMAGE           = "/image/delete"           // delete image
+	URI_CLIENT_LAUNCH_SERVICE         = "/service/launch"         // launch service
+	URI_CLIENT_LAUNCH_SERVICE_CHECK   = "/service/launch/check"   // launch service check
+	URI_CLIENT_STOP_SERVICE           = "/service/stop"           // stop service
+	URI_CLIENT_STOP_SERVICE_CHECK     = "/service/stop/check"     // stop service check
+	URI_CLIENT_LIST_SERVICE           = "/service/list"           // list service
 )

@@ -2,15 +2,50 @@ package docker
 
 import (
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 
+	"github.com/Yeuoly/kisara/src/routine/db"
 	log "github.com/Yeuoly/kisara/src/routine/log"
 	"github.com/Yeuoly/kisara/src/types"
 	uuid "github.com/satori/go.uuid"
 )
 
+var (
+	current_services        = make(map[string]*types.Service)
+	current_services_locker = new(sync.Mutex)
+)
+
+func set_service(service *types.Service) {
+	current_services_locker.Lock()
+	current_services[service.Id] = service
+	current_services_locker.Unlock()
+}
+
+func get_service(service_id string) *types.Service {
+	current_services_locker.Lock()
+	service := current_services[service_id]
+	current_services_locker.Unlock()
+	return service
+}
+
+func delete_service(service_id string) {
+	current_services_locker.Lock()
+	delete(current_services, service_id)
+	current_services_locker.Unlock()
+}
+
+func walk_services(callback func(service *types.Service)) {
+	current_services_locker.Lock()
+	for _, service := range current_services {
+		callback(service)
+	}
+	current_services_locker.Unlock()
+}
+
 // create a service from a service config
-func (c *Docker) CreateService(service_config types.KisaraService) (*types.Service, error) {
+func (c *Docker) CreateService(service_config types.KisaraService, message_callback ...func(string)) (*types.Service, error) {
 	config, err := service_config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -31,6 +66,11 @@ func (c *Docker) CreateService(service_config types.KisaraService) (*types.Servi
 
 	if config.ContainerCount > 16 {
 		return nil, errors.New("at most 16 containers are allowed")
+	}
+
+	callback := func(message string) {}
+	if len(message_callback) > 0 {
+		callback = message_callback[0]
 	}
 
 	// create service
@@ -76,6 +116,8 @@ func (c *Docker) CreateService(service_config types.KisaraService) (*types.Servi
 				OriginalName: network.Network,
 			})
 		}
+
+		callback(fmt.Sprintf("network %s created", network.Network))
 	}
 
 	// create containers
@@ -115,8 +157,9 @@ func (c *Docker) CreateService(service_config types.KisaraService) (*types.Servi
 			return nil, err
 		}
 
-		result_containers = append(result_containers, *container)
+		callback(fmt.Sprintf("container %s created", container.Id))
 
+		result_containers = append(result_containers, *container)
 		// execute flag command
 		for _, flag := range container_config.Flags {
 			flag_text := `kisara{` + uuid.NewV4().String() + `}`
@@ -131,6 +174,8 @@ func (c *Docker) CreateService(service_config types.KisaraService) (*types.Servi
 				FlagUuid: flag.FlagUuid,
 				Flag:     flag_text,
 			})
+
+			callback(fmt.Sprintf("flag %s created", flag.FlagUuid))
 		}
 	}
 
@@ -140,17 +185,37 @@ func (c *Docker) CreateService(service_config types.KisaraService) (*types.Servi
 	}
 
 	// create service
-	service := &types.Service{
+	service := types.Service{
+		Id:         uuid.NewV4().String(),
+		Name:       service_config.Name,
 		Containers: result_containers,
 		Networks:   networks_result,
 		Flags:      flags,
+		Status:     types.SERVICE_STATUS_RUNNING,
 	}
 
-	return service, nil
+	// save service
+	db_service := types.DBService{}
+	db_service.InjectService(service)
+	err = db.CreateGeneric(&db_service)
+	if err != nil {
+		release_containers()
+		return nil, err
+	}
+
+	// save service in memory
+	set_service(&service)
+	return &service, nil
 }
 
 // delete a service
-func (c *Docker) DeleteService(service *types.Service) error {
+func (c *Docker) DeleteService(service_id string) error {
+	service := get_service(service_id)
+	if service == nil {
+		return errors.New("service not found")
+	}
+	defer delete_service(service_id)
+
 	for _, container := range service.Containers {
 		err := c.StopContainer(container.Id)
 		if err != nil {
@@ -173,4 +238,21 @@ func (c *Docker) DeleteService(service *types.Service) error {
 	}
 
 	return nil
+}
+
+func (c *Docker) GetService(service_id string) (*types.Service, error) {
+	service := get_service(service_id)
+	if service == nil {
+		return nil, errors.New("service not found")
+	}
+
+	return service, nil
+}
+
+func (c *Docker) ListServices() ([]*types.Service, error) {
+	result := make([]*types.Service, 0)
+	walk_services(func(service *types.Service) {
+		result = append(result, service)
+	})
+	return result, nil
 }

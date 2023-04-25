@@ -80,8 +80,8 @@ func testService() {
 	}
 	fmt.Println(service_resp)
 
-	// err = client.DeleteService(service_resp)
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err = client.DeleteService(service_resp.Id)
+	if err != nil {
+		panic(err)
+	}
 }

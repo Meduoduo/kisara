@@ -360,3 +360,98 @@ type ResponseListNetwork struct {
 	// Error is the error of the container
 	Error string `json:"error"`
 }
+
+type RequestLaunchService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ServiceConfig
+	ServiceConfig KisaraService `json:"service_config"`
+}
+
+type ResponseLaunchService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// Service
+	MessageResponseId string `json:"response_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
+}
+
+type RequestCheckLaunchService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// RequestID is the request ID of the container
+	MessageResponseId string `json:"response_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
+}
+
+type ResponseCheckLaunchService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// Finished is the finished of the container
+	Finished bool `json:"finished"`
+	// Message
+	Message string `json:"message"`
+	// Service
+	Service Service `json:"service"`
+}
+
+type ResponseFinalLaunchServiceStatus struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// Service
+	Service Service `json:"service"`
+}
+
+type RequestListService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+}
+
+type ResponseListService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Services is the services of the container
+	Services []Service `json:"services"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}
+
+type RequestStopService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ServiceID
+	ServiceID string `json:"service_id"`
+}
+
+type ResponseStopService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// ResponseID
+	ResponseID string `json:"response_id"`
+}
+
+type RequestCheckStopService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// ResponseID
+	ResponseID string `json:"response_id"`
+}
+
+type ResponseCheckStopService struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the container
+	Error string `json:"error"`
+	// Finished is the finished of the container
+	Finished bool `json:"finished"`
+}
