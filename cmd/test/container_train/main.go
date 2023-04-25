@@ -28,7 +28,7 @@ func main() {
 func testTrain() {
 	client := docker.NewDocker()
 	defer client.Stop()
-	err := client.CreateNetwork("172.127.0.0/16", "irina-train", false, "bridge")
+	_, err := client.CreateNetwork("172.127.0.0/16", "irina-train", false, "bridge")
 	if err != nil && !strings.ContainsAny(err.Error(), "already exists") {
 		panic(err)
 	}

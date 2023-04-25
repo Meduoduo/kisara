@@ -15,11 +15,13 @@ require (
 require (
 	github.com/Yeuoly/Takina v0.0.0-20230423144503-e0f00d84d973 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
+	github.com/gookit/color v1.5.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
+	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	gorm.io/driver/sqlite v1.5.0 // indirect
 	gorm.io/gorm v1.25.0 // indirect

@@ -8,7 +8,7 @@ import (
 func main() {
 	helper.InitServerConfig()
 	client := docker.NewDocker()
-	err := client.CreateNetwork("172.127.0.0/16", "irina-train", true, "bridge")
+	_, err := client.CreateNetwork("172.127.0.0/16", "irina-train", true, "bridge")
 	if err != nil {
 		panic(err)
 	}

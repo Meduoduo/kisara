@@ -10,6 +10,7 @@ network_in = 52428800 # 50Mbps
 network_out = 52428800 # 50Mbps
 max_container = 80 # max container number
 db_path = "db/kisara.db" # database path
+network_cidrs = "172.[128-255].[0-255].0/24" # network CIDRs available for client
 
 [kisaraServer]
 address = "159.75.81.96" # for client, which master should it connect to

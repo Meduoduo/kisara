@@ -127,7 +127,7 @@ func InitDocker() {
 	)
 
 	if err != nil {
-		panic("[docker] docker start failed")
+		log.Panic("[docker] docker start failed")
 	}
 
 	defer cli.Close()
@@ -136,7 +136,7 @@ func InitDocker() {
 		All: true,
 	})
 	if err != nil {
-		panic("[docker] init docker failed")
+		log.Panic("[docker] init docker failed")
 	}
 
 	for _, container := range containers {
@@ -178,7 +178,7 @@ func InitDocker() {
 		kisara_networks = append(kisara_networks, kisara_network)
 	}
 
-	callOnDockerDaemonStartHooks(NewDocker(), kisara_networks)
+	go callOnDockerDaemonStartHooks(NewDocker(), kisara_networks)
 
 	log.Info("[docker] init docker finished")
 }
@@ -382,8 +382,8 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 
 	// parse port protocol
 	host_port := ""
-	port_protocols := strings.Split(port_protocol, ",")
-	port_mappings := make([]portMapping, len(port_protocols))
+	port_protocols := strings.Split(strings.TrimSpace(port_protocol), ",")
+	port_mappings := make([]portMapping, 0)
 
 	release := func() {
 		for _, port_mapping := range port_mappings {
@@ -397,6 +397,10 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 	}
 
 	for i, port_protocol := range port_protocols {
+		if len(port_protocol) == 0 {
+			continue
+		}
+
 		//request launch proxy, protocol_port likes 80/tcp
 		protocol_ports := strings.Split(port_protocol, "/")
 		if len(protocol_ports) != 2 {
@@ -415,6 +419,7 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 			return nil, errors.New("protocol_port format with port error")
 		}
 
+		port_mappings = append(port_mappings, portMapping{})
 		port_mappings[i].Protocol = protocol_ports[1]
 		resp, err := api.StartProxy(container_default_ip, port, protocol)
 		if err != nil {
@@ -542,6 +547,24 @@ func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, su
 	}
 
 	log.Info("[docker] launch AWD successfully: " + container.Id)
+
+	return container, nil
+}
+
+func (c *Docker) LaunchServiceContainer(image_name string, port_protocols string, uid int, subnet_names []string, env map[string]string) (*kisara_types.Container, error) {
+	image := &kisara_types.Image{
+		Name: image_name,
+		User: "root",
+	}
+
+	//创建容器并留下记录
+	container, err := c.CreateContainer(image, uid, port_protocols, subnet_names, "service", env)
+	if err != nil {
+		log.Warn("[docker] create service container failed: " + err.Error())
+		return nil, err
+	}
+
+	log.Info("[docker] launch service container successfully: " + container.Id)
 
 	return container, nil
 }
@@ -770,121 +793,6 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisa
 }
 
 /*
-Create a new docker virtual network
-*/
-func (c *Docker) CreateNetwork(subnet string, name string, internal bool, driver string) error {
-	_, err := c.Client.NetworkCreate(*c.Ctx, name, types.NetworkCreate{
-		Driver:         driver,
-		CheckDuplicate: true,
-		IPAM: &network.IPAM{
-			Config: []network.IPAMConfig{
-				{
-					Subnet: subnet,
-				},
-			},
-		},
-		EnableIPv6: false,
-		// if host_join is true, the host will join the network, otherwise the host will not join the network
-		Internal:   internal,
-		Attachable: true,
-	})
-	if err != nil {
-		return err
-	}
-
-	network := kisara_types.Network{
-		Name:     name,
-		Subnet:   subnet,
-		Internal: internal,
-		Driver:   driver,
-		Scope:    "swarm",
-	}
-
-	callOnNetworkCreateHooks(c, network)
-
-	return nil
-}
-
-/*
-Delete a docker virtual network
-*/
-func (c *Docker) DeleteNetwork(network_id string) error {
-	// inspect network
-	net, err := c.Client.NetworkInspect(*c.Ctx, network_id, types.NetworkInspectOptions{})
-	if err != nil {
-		return err
-	}
-
-	if len(net.IPAM.Config) == 0 {
-		return errors.New("network does not have subnet")
-	}
-
-	network := kisara_types.Network{
-		Name:     net.Name,
-		Subnet:   net.IPAM.Config[0].Subnet,
-		Internal: net.Internal,
-		Driver:   net.Driver,
-		Scope:    net.Scope,
-	}
-
-	callBeforeNetworkRemoveHooks(c, network)
-
-	err = c.Client.NetworkRemove(*c.Ctx, network_id)
-	if err != nil {
-		return err
-	}
-
-	callOnNetworkRemoveHooks(c, network)
-
-	return nil
-}
-
-/*
-List all docker virtual network
-*/
-func (c *Docker) ListNetwork() ([]kisara_types.Network, error) {
-	networks, err := c.Client.NetworkList(context.Background(), types.NetworkListOptions{})
-	if err != nil {
-		log.Warn("List network failed: %s", err.Error())
-	}
-
-	var ret []kisara_types.Network
-	for _, network := range networks {
-		if len(network.IPAM.Config) == 0 {
-			continue
-		}
-		ret = append(ret, kisara_types.Network{
-			Id:       network.ID,
-			Name:     network.Name,
-			Subnet:   network.IPAM.Config[0].Subnet,
-			Internal: network.Internal,
-			Driver:   network.Driver,
-			Scope:    network.Scope,
-		})
-	}
-
-	return ret, nil
-}
-
-/*
-Get a docker virtual network by name
-*/
-func (c *Docker) GetNetworkByName(name string) (*kisara_types.Network, error) {
-	networks, err := c.ListNetwork()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, network := range networks {
-		if network.Name == name {
-			return &network, nil
-		}
-	}
-
-	return nil, errors.New("network not found")
-}
-
-/*
 Get container Number
 */
 func (c *Docker) GetContainerNumber() (int, error) {
@@ -893,26 +801,4 @@ func (c *Docker) GetContainerNumber() (int, error) {
 		return 0, err
 	}
 	return len(containers), nil
-}
-
-/*
-Connect a container to a network
-*/
-func (c *Docker) ConnectContainerToNetwork(container_id string, network_id string) error {
-	err := c.Client.NetworkConnect(*c.Ctx, network_id, container_id, nil)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-/*
-Disconnect a container from a network
-*/
-func (c *Docker) DisconnectContainerFromNetwork(container_id string, network_id string) error {
-	err := c.Client.NetworkDisconnect(*c.Ctx, network_id, container_id, true)
-	if err != nil {
-		return err
-	}
-	return nil
 }
