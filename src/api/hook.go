@@ -24,6 +24,14 @@ func RegisterOnNodeStopContainer(f server.KisaraOnNodeStopContainer) {
 	server.RegisterOnNodeStopContainer(f)
 }
 
+func RegisterOnNodeLaunchService(f server.KisaraOnServiceStart) {
+	server.RegisterOnServiceStart(f)
+}
+
+func RegisterOnNodeStopService(f server.KisaraOnServiceStop) {
+	server.RegisterOnServiceStop(f)
+}
+
 func UnsetOnNodeConnect() {
 	server.UnsetOnNodeConnect()
 }
@@ -42,4 +50,12 @@ func UnsetOnNodeLaunchContainer() {
 
 func UnsetOnNodeStopContainer() {
 	server.UnsetOnNodeStopContainer()
+}
+
+func UnsetOnNodeLaunchService() {
+	server.UnsetOnServiceStart()
+}
+
+func UnsetOnNodeStopService() {
+	server.UnsetOnServiceStop()
 }
