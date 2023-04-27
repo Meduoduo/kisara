@@ -122,6 +122,8 @@ func (c *KisaraService) GetConfig() (ServiceConfig, error) {
 				if !strings.Contains("ABCDEFGHIJKLMNOPQRSTUVWXYZ", network.Network) {
 					return config, errors.New("random CIDR network should be one character like 'A' or 'B'")
 				}
+			} else {
+				return config, errors.New("currently only support random CIDR network")
 			}
 			networks[network.Network] = true
 		}
