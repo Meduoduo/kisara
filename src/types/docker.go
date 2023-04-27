@@ -172,6 +172,14 @@ func (c *ServiceConfig) GetNetworks() []ServiceConfigContainerNetwork {
 	return networks_list
 }
 
+func (c *ServiceConfig) GetFlagCount() int {
+	count := 0
+	for _, container := range c.Containers {
+		count += len(container.Flags)
+	}
+	return count
+}
+
 func (c *ServiceConfigContainer) GetPortProtocol() map[int]string {
 	port_protocol := make(map[int]string)
 	for _, port := range c.Ports {
