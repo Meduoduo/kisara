@@ -739,6 +739,12 @@ func StopService(req types.RequestStopService, timeout time.Duration) (types.Res
 			return types.ResponseStopContainer{}, err
 		}
 		req.ClientID = client_id
+		client_temp := server.GetClient(client_id)
+		if client_temp == nil {
+			return types.ResponseStopContainer{}, errors.New("client not found")
+		}
+
+		client = *client_temp
 	}
 
 	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseStopService]](

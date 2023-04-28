@@ -95,27 +95,24 @@ func (c *Docker) CreateService(service_config types.KisaraService, message_callb
 	}
 
 	for _, network := range networks {
+		var net *types.Network
 		if network.RandomCIDR {
-			net, err := c.CreateRandomCIDRNetwork(true, "overlay")
+			net, err = c.CreateRandomCIDRNetwork(true, "overlay")
 			if err != nil {
 				release_networks()
 				return nil, err
 			}
-			result_networks = append(result_networks, &network_info{
-				network:      net,
-				OriginalName: network.Network,
-			})
 		} else {
-			net, err := c.CreateNetwork(uuid.NewV4().String(), network.Network, true, "overlay")
+			net, err = c.CreateNetwork(uuid.NewV4().String(), network.Network, true, "overlay")
 			if err != nil {
 				release_networks()
 				return nil, err
 			}
-			result_networks = append(result_networks, &network_info{
-				network:      net,
-				OriginalName: network.Network,
-			})
 		}
+		result_networks = append(result_networks, &network_info{
+			network:      net,
+			OriginalName: network.Network,
+		})
 
 		callback(fmt.Sprintf("network %s created", network.Network))
 	}
