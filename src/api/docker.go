@@ -710,8 +710,8 @@ func LaunchService(req types.RequestLaunchService, message_callback func(string)
 			if resp.Data.Error != "" {
 				return types.ResponseFinalLaunchServiceStatus{}, errors.New(resp.Data.Error)
 			}
+			message_callback(resp.Data.Message)
 			if !resp.Data.Finished {
-				message_callback(resp.Data.Message)
 				continue
 			}
 			service := resp.Data.Service
