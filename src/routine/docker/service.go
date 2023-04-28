@@ -114,7 +114,7 @@ func (c *Docker) CreateService(service_config types.KisaraService, message_callb
 			OriginalName: network.Network,
 		})
 
-		callback(fmt.Sprintf("network %s created", network.Network))
+		callback(fmt.Sprintf("network %s created\n", network.Network))
 	}
 
 	// create containers
@@ -154,7 +154,7 @@ func (c *Docker) CreateService(service_config types.KisaraService, message_callb
 			return nil, err
 		}
 
-		callback(fmt.Sprintf("container %s created", container.Id))
+		callback(fmt.Sprintf("container %s created\n", container.Id))
 
 		result_containers = append(result_containers, *container)
 		// execute flag command
@@ -172,7 +172,7 @@ func (c *Docker) CreateService(service_config types.KisaraService, message_callb
 				Flag:     flag_text,
 			})
 
-			callback(fmt.Sprintf("flag %s created", flag.FlagUuid))
+			callback(fmt.Sprintf("flag %s created\n", flag.FlagUuid))
 		}
 	}
 

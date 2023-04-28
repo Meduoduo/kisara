@@ -326,7 +326,9 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 			DNS: []string{docker_dns},
 		},
 		&network.NetworkingConfig{
-			EndpointsConfig: endpoints,
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				default_network_name: endpoints[default_network_name],
+			},
 		}, nil, uuid,
 	)
 
@@ -372,6 +374,20 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 		remove_container()
 		log.Warn("[docker] inspect container error: " + err.Error())
 		return nil, err
+	}
+
+	// connect to network
+	for name, network := range endpoints {
+		if name == default_network_name {
+			continue
+		}
+		err = c.Client.NetworkConnect(*c.Ctx, network.NetworkID, resp.ID, nil)
+		if err != nil {
+			stop_container()
+			remove_container()
+			log.Warn("[docker] connect to network error: " + err.Error())
+			return nil, err
+		}
 	}
 
 	// get at least one ip
