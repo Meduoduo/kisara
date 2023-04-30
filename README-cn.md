@@ -1,5 +1,5 @@
 # Kisara
-Kisara 是一个用于CTF/AWD等竞赛的Docker集群管理工具，现在尚处于研发阶段
+Kisara 是一个用于CTF/AWD等竞赛的Docker集群管理工具，现在尚处于研发阶段，负载均衡等功能还很基础
 
 [README](./README.md)|[文档](./README-cn.md)
 
@@ -166,4 +166,184 @@ kisara.RegisterOnNodeConnect(func(client_id string, client *kisara_types.Client)
 })
 ```
 
-详细信息和接口会在未来完成文档，现在请根据IDE提示或者查看源码
+# Kisara API
+下面将列出Kisara的API列表和使用规范
+
+## Kisara Init API
+启动一个KisaraServer只需要调用一个API即可，Kisara服务将会自动启动
+```go
+func LaunchKisaraServer(ignoreLogInfo bool)
+```
+请注意，这个API是非阻塞的，只需要简单地调用即可，`ignoreLogInfo`如果为true，那么Kisara日志将会被关闭不显示，如果步关闭，将会有一大堆乱七八糟的日志，我们建议关闭日志，然后使用`KisaraHookAPI`自行打印日志
+
+## Kisara Async API
+KisaraAsyncAPI提供健全的API服务
+- 在这个API列表中列出的API将使用看似同步的方式完成所有操作，并确保不会造成性能瓶颈
+- 所有API提供基础的timeout选项，如果超时将会抛出错误信息timeout
+- 所有API需要传入的都是一个`types.RequestXXXX`结构，这个结构中大多会包含一个`ClientId`字段，这个字段可以指定节点
+- 部分API会做缓存，可以不需要填写`ClientId`，Kisara会根据实际情况自动选择节点
+- 如有特殊需要，请手动指定节点，Kisara将会提供API用于获取节点信息
+- 如果下面的API列表中有`AutoNode`标识，那么标识这个API将会自动选择节点，如果为`AutoDemand`那么表示这个API会根据负载均衡选择节点，如果为`AutoAll`那么表示如果没有指定节点，Kisara将会选择所有节点，典型的如List类的API
+
+### LaunchContainer
+```go
+func LaunchContainer(req types.RequestLaunchContainer, timeout time.Duration) (types.ResponseFinalLaunchStatus, error)
+```
+LaunchContainer将会启动一个容器，提供的选项请看`types.RequestLaunchContainer`，必须指定的参数为`ImageName`，`PortProtocol`参数为端口映射，Kisara将会通过Takina将其映射到公网
+- AutoNode
+- AutoDemand
+
+### StopContainer
+```go
+func StopContainer(req types.RequestStopContainer, timeout time.Duration) (types.ResponseStopContainer, error)
+```
+同理，但是注意，Kisara的StopContainer不像Docker的stop，其会不管容器是否设置了AutoRemove，其会先停止容器随后自动移除容器
+
+- AutoNode
+
+### RemoveContainer
+```go
+func RemoveContainer(req types.RequestRemoveContainer, timeout time.Duration) (types.ResponseRemoveContainer, error)
+```
+同上
+
+- AutoNode
+
+###  ListContainer
+```go
+func ListContainer(req types.RequestListContainer, timeout time.Duration) (types.ResponseListContainer, error)
+```
+列出所有容器
+
+- AutoNode
+- AutoAll
+
+### ExecContainer
+```go
+func ExecContainer(req types.RequestExecContainer, timeout time.Duration) (types.ResponseExecContainer, error)
+```
+ExecContainer将会在指定容器上执行对应指令，但是不负责命令结果的返回，只负责命令的发送结果，如果命令发送成功，那么Kisara就会认为该API已经完成任务，携带重定向了IO的命令请期待`ExecContainerAttach`API
+
+- AutoNode
+
+### InspectContainer 
+```go
+func InspectContainer(req types.RequestInspectContainer, timeout time.Duration) (types.ResponseInspectContainer, error)
+```
+获取多个容器的详细信息，只包含Kisara内部结构
+
+- AutoNode
+
+### CreateNetwork
+```go
+func CreateNetwork(req types.RequestCreateNetwork, timeout time.Duration) (types.ResponseCreateNetwork, error)
+```
+在对应节点上创建一个网络，并且全为同步接口，不存在Docker自身接口异步的问题
+
+- NoAuto
+
+### ListNetwork
+```go
+func ListNetwork(req types.RequestListNetwork, timeout time.Duration) (types.ResponseListNetwork, error)
+```
+获取网络列表
+
+- AutoNode
+
+### RemoveNetwork
+```go
+func RemoveNetwork(req types.RequestRemoveNetwork, timeout time.Duration) (types.ResponseRemoveNetwork, error) 
+```
+删除网络
+
+- NoAuto
+
+### ListImage
+```go
+func ListImage(req types.RequestListImage, timeout time.Duration) (types.ResponseListImage, error)
+```
+
+列出镜像
+
+- AutoNode
+
+### PullImage
+```go
+func PullImage(req types.RequestPullImage, timeout time.Duration, message_callback func(string)) (types.ResponseFinalPullImageStatus, error)
+```
+拉取镜像，`message_callback`是一个日志回调，当拉取镜像时有新日志时，一个JSON结构的Docker日志将会被传入该回调
+
+- NoNode
+
+### DeleteImage
+```go
+func DeleteImage(req types.RequestDeleteImage, timeout time.Duration) (types.ResponseDeleteImage, error)
+```
+删除镜像
+
+- NoAuto
+
+### LaunchService
+```go
+func LaunchService(req types.RequestLaunchService, message_callback func(string), timeout time.Duration) (types.ResponseFinalLaunchServiceStatus, error)
+```
+启动一个服务，注意，Kisara的服务和K8s、Swarm等集群的服务并不是一个概念，Kisara的服务更偏向于让容器间在一个封闭的环境中建立一个子网，并提供映射服务使得其可以被公网访问，是的，这很类似于DockerCompose，但是Kisara的底层让它的隔离性非常强悍，并且Kisara可以根据配置自动分配子网IP，配置请参考`types.ServiceConfig`，需要将其使用JSON格式储存在`RequestLaunchService`结构的一个字段中，`message_callback`为日志回调，Kisara将会传回Service启动时的日志
+
+- AutoNode
+
+### StopService
+```go
+func StopService(req types.RequestStopService, timeout time.Duration) (types.ResponseStopContainer, error)
+```
+停止一个服务
+
+- AutoNode
+
+### ListService
+```go
+func ListServices(req types.RequestListService, timeout time.Duration) (types.ResponseListService, error)
+```
+列出所有服务
+
+- AutoNode
+- AutoAll
+
+## Kisara Hook API
+KisaraHookAPI就如它的名字一样，他是一个事件机制，当Kisara发生了一些事件时，回调会被调用
+
+```go
+// 新节点连接
+func RegisterOnNodeConnect(f server.KisaraOnNodeConnect)
+
+// 节点失联
+func RegisterOnNodeDisconnect(f server.KisaraOnNodeDisconnect) 
+
+// 节点心跳
+func RegisterOnNodeHeartBeat(f server.KisaraOnNodeHeartBeat) 
+
+// 节点容器启动
+func RegisterOnNodeLaunchContainer(f server.KisaraOnNodeLaunchContainer) 
+
+// 节点容器停止
+func RegisterOnNodeStopContainer(f server.KisaraOnNodeStopContainer) 
+
+// 节点服务启动
+func RegisterOnNodeLaunchService(f server.KisaraOnServiceStart) 
+
+// 节点服务停止
+func RegisterOnNodeStopService(f server.KisaraOnServiceStop) 
+
+func UnsetOnNodeConnect()
+
+func UnsetOnNodeDisconnect() 
+
+func UnsetOnNodeHeartBeat() 
+
+func UnsetOnNodeLaunchContainer() 
+
+func UnsetOnNodeStopContainer() 
+
+func UnsetOnNodeLaunchService() 
+
+func UnsetOnNodeStopService() 
+```
