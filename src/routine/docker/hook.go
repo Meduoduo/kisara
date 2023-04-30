@@ -1,6 +1,8 @@
 package docker
 
 import (
+	"errors"
+
 	"github.com/Yeuoly/kisara/src/types"
 )
 
@@ -10,7 +12,7 @@ type OnContainerStop func(*Docker, types.Container)
 
 type OnNetworkCreate func(*Docker, types.Network)
 
-type BeforeNetworkRemove func(*Docker, types.Network)
+type BeforeNetworkRemove func(*Docker, types.Network) error
 
 type OnNetworkRemove func(*Docker, types.Network)
 
@@ -84,10 +86,17 @@ func callOnNetworkCreateHooks(c *Docker, network types.Network) {
 }
 
 // callBeforeNetworkRemoveHooks calls all hooks in the BeforeNetworkRemoveHook list
-func callBeforeNetworkRemoveHooks(c *Docker, network types.Network) {
+func callBeforeNetworkRemoveHooks(c *Docker, network types.Network) error {
+	var err error
 	for _, hook := range beforeNetworkRemoveHook {
-		hook(c, network)
+		if err == nil {
+			err = hook(c, network)
+		} else {
+			err = errors.Join(err, hook(c, network))
+		}
 	}
+
+	return err
 }
 
 // callOnNetworkRemoveHooks calls all hooks in the OnNetworkRemoveHook list

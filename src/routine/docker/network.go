@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -127,7 +126,6 @@ func (c *Docker) CreateRandomCIDRNetwork(internal bool, driver string) (*kisara_
 		cidr_name = "kisara_" + strings.Replace(cidr_name, "/", "_", -1)
 		network, err := c.CreateNetwork(cidr, cidr_name, internal, driver)
 		if err != nil {
-			fmt.Println(err)
 			releaseCIDR(cidr)
 			continue
 		}
@@ -189,7 +187,6 @@ func (c *Docker) CreateNetwork(subnet string, name string, internal bool, driver
 			},
 		},
 		EnableIPv6: false,
-		// if host_join is true, the host will join the network, otherwise the host will not join the network
 		Internal:   internal,
 		Attachable: true,
 	})
@@ -207,21 +204,12 @@ func (c *Docker) CreateNetwork(subnet string, name string, internal bool, driver
 	}
 
 	// wait for network to be ready
-	for i := 0; i < 10; i++ {
-		net, err := c.Client.NetworkInspect(*c.Ctx, network.Id, types.NetworkInspectOptions{})
-		if err != nil {
-			continue
-		}
-
-		if len(net.IPAM.Config) == 0 {
-			continue
-		}
-
-		if net.IPAM.Config[0].Subnet == subnet {
+	for i := 0; i < 30; i++ {
+		net, _ := c.GetNetworkByName(name)
+		if net != nil {
 			break
 		}
-
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 
 	go callOnNetworkCreateHooks(c, network)
@@ -252,7 +240,25 @@ func (c *Docker) DeleteNetwork(network_id string) error {
 		Scope:    net.Scope,
 	}
 
-	callBeforeNetworkRemoveHooks(c, network)
+	err = callBeforeNetworkRemoveHooks(c, network)
+	if err != nil {
+		return err
+	}
+
+	// check if network is used by any container for 20 seconds
+	for i := 0; i < 20; i++ {
+		network_check, err := c.Client.NetworkInspect(*c.Ctx, network_id, types.NetworkInspectOptions{})
+		if err != nil {
+			return err
+		}
+
+		if len(network_check.Containers) == 0 {
+			break
+		}
+
+		log.Warn("[Network] Network %s is still used by containers, waiting...", network_id)
+		time.Sleep(1000 * time.Millisecond)
+	}
 
 	err = c.Client.NetworkRemove(*c.Ctx, network_id)
 	if err != nil {
