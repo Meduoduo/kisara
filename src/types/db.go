@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -68,4 +69,16 @@ func (c *DBService) InjectService(service Service) {
 
 	flags, _ := json.Marshal(service.Flags)
 	c.Flags = string(flags)
+}
+
+type DBImage struct {
+	gorm.Model
+	Id        int       `gorm:"primaryKey;autoIncrement;not null"`
+	ImageName string    `gorm:"type:varchar(255);not null"`
+	ImageId   string    `gorm:"type:varchar(255);not null;index"`
+	LastUsage time.Time `gorm:"type:datetime;not null"`
+}
+
+func (c *DBImage) IsExpired(duration time.Duration) bool {
+	return time.Since(c.LastUsage) > duration
 }

@@ -92,7 +92,10 @@ func callBeforeNetworkRemoveHooks(c *Docker, network types.Network) error {
 		if err == nil {
 			err = hook(c, network)
 		} else {
-			err = errors.Join(err, hook(c, network))
+			current_err := hook(c, network)
+			if current_err != nil {
+				err = errors.New(err.Error() + "," + current_err.Error())
+			}
 		}
 	}
 

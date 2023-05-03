@@ -211,38 +211,6 @@ func (c *Docker) Stop() {
 	c.Client.Close()
 }
 
-func (c *Docker) PullImage(image_name string, event_callback func(message string)) (*kisara_types.Image, error) {
-	image := kisara_types.Image{
-		Name: image_name,
-	}
-
-	reader, err := c.Client.ImagePull(*c.Ctx, image_name, types.ImagePullOptions{})
-
-	if err != nil || reader == nil {
-		return nil, err
-	}
-
-	for {
-		buf := make([]byte, 1024)
-		n, err := reader.Read(buf)
-
-		if err == nil && event_callback != nil {
-			event := string(buf[0:n])
-			event_callback(event)
-		}
-
-		if err == io.EOF || n == 0 {
-			break
-		}
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &image, nil
-}
-
 func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_names []string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
 	log.Info("[docker] start launch container:" + image.Name)
 

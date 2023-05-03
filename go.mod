@@ -3,28 +3,35 @@ module github.com/Yeuoly/kisara
 go 1.18
 
 require (
-	github.com/aceld/zinx v1.0.1
+	github.com/Yeuoly/Takina v0.0.0-20230423144503-e0f00d84d973
 	github.com/docker/docker v23.0.4+incompatible
-	github.com/docker/go-connections v0.4.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/satori/go.uuid v1.2.0
-	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/viper v1.15.0
+	gorm.io/driver/sqlite v1.5.0
+	gorm.io/gorm v1.25.0
 )
 
 require (
-	github.com/Yeuoly/Takina v0.0.0-20230423144503-e0f00d84d973 // indirect
+	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/gookit/color v1.5.3 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.16 // indirect
+	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
-	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	gorm.io/driver/sqlite v1.5.0 // indirect
-	gorm.io/gorm v1.25.0 // indirect
+	golang.org/x/exp v0.0.0-20221031165847-c99f073a8326 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20221031165847-c99f073a8326 // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/tools/gopls v0.11.0 // indirect
+	golang.org/x/vuln v0.0.0-20221109205719-3af8368ee4fe // indirect
+	honnef.co/go/tools v0.3.3 // indirect
+	mvdan.cc/gofumpt v0.4.0 // indirect
+	mvdan.cc/xurls/v2 v2.4.0 // indirect
 )
 
 require (

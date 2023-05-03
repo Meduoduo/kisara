@@ -15,6 +15,10 @@ import (
 
 var kisaraDB *gorm.DB
 
+var (
+	ErrNotFound = gorm.ErrRecordNotFound
+)
+
 func InitKisaraDB(db_path string) {
 	db, err := gorm.Open(sqlite.Open(db_path), &gorm.Config{})
 	if err != nil {
@@ -29,6 +33,7 @@ func InitKisaraDB(db_path string) {
 func registerModel() {
 	kisaraDB.AutoMigrate(&types.DBContainer{})
 	kisaraDB.AutoMigrate(&types.DBService{})
+	kisaraDB.AutoMigrate(&types.DBImage{})
 }
 
 func CreateGeneric[T any](data *T) error {
