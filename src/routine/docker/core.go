@@ -213,6 +213,11 @@ func (c *Docker) Stop() {
 
 func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_names []string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
 	log.Info("[docker] start launch container:" + image.Name)
+	// require image first, if image not exist, kisara will pull it first
+	kisara_image, err := c.RequireImage(image.Name, func(message string) {})
+	if err != nil {
+		return nil, err
+	}
 
 	// check if subnet exists
 	endpoints := make(map[string]*network.EndpointSettings)
@@ -267,8 +272,8 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 	resp, err := c.Client.ContainerCreate(
 		*c.Ctx,
 		&container.Config{
-			Image:        image.Name,
-			User:         image.User,
+			Image:        kisara_image.Name,
+			User:         "",
 			Tty:          false,
 			AttachStdin:  true,
 			AttachStdout: true,

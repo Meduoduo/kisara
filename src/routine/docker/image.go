@@ -112,7 +112,7 @@ func (c *Docker) RequireImage(image_name string, message_callback func(string)) 
 	if image_id == "" {
 		message_callback("image not found, try pull...")
 		image_pull, err := c.PullImage(image_name, func(message string) {
-			message_callback("message from pull image... pulling...")
+			message_callback("pulling in progress...")
 		})
 
 		if err != nil {
@@ -128,6 +128,8 @@ func (c *Docker) RequireImage(image_name string, message_callback func(string)) 
 		}
 
 		image.Name = image_raw.RepoTags[0]
+
+		// TODO: check if image has tag latest is updated, pull again
 	}
 
 	image_mutex.Lock(image_id)

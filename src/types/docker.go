@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Image struct {
@@ -69,34 +71,34 @@ type KisaraService struct {
 }
 
 type ServiceConfigContainerPortMapping struct {
-	Port     int    `json:"port"`     // port in container to be mapped
-	Protocol string `json:"protocol"` // protocol of port
+	Port     int    `json:"port" yaml:"port"`         // port in container to be mapped
+	Protocol string `json:"protocol" yaml:"protocol"` // protocol of port
 }
 
 type ServiceConfigContainerNetwork struct {
-	Network    string `json:"network"`     // network to be used, if random_network is true, this field should be a string of network name
-	RandomCIDR bool   `json:"random_cidr"` // whether to generate random container
+	Network    string `json:"network" yaml:"network"`        // network to be used, if random_network is true, this field should be a string of network name
+	RandomCIDR bool   `json:"random_cidr" yaml:"RandomCIDR"` // whether to generate random container
 }
 
 type ServiceConfigContainer struct {
-	Image    string                              `json:"image"`
-	Ports    []ServiceConfigContainerPortMapping `json:"ports"`
-	Networks []ServiceConfigContainerNetwork     `json:"networks"`
-	Flags    []ServiceConfigContainerFlag        `json:"flags"`
-	Env      map[string]string                   `json:"env"`
+	Image    string                              `json:"image" yaml:"image"`
+	Ports    []ServiceConfigContainerPortMapping `json:"ports" yaml:"ports"`
+	Networks []ServiceConfigContainerNetwork     `json:"networks" yaml:"networks"`
+	Flags    []ServiceConfigContainerFlag        `json:"flags" yaml:"flags"`
+	Env      map[string]string                   `json:"env" yaml:"env"`
 }
 
 type ServiceConfigContainerFlag struct {
-	FlagCommand string `json:"flag_command"`
-	FlagScore   int    `json:"flag_score"`
-	FlagUuid    string `json:"flag_uuid"` // uuid of flag
+	FlagCommand string `json:"flag_command" yaml:"flag_command"`
+	FlagScore   int    `json:"flag_score" yaml:"flag_score"`
+	FlagUuid    string `json:"flag_uuid" yaml:"flag_uuid"` // uuid of flag
 }
 
 type ServiceConfig struct {
-	Containers     []ServiceConfigContainer `json:"containers"`
-	TotalScore     int                      `json:"total_score"`
-	NetworkCount   int                      `json:"network_count"`
-	ContainerCount int                      `json:"container_count"`
+	Containers     []ServiceConfigContainer `json:"containers" yaml:"containers"`
+	TotalScore     int                      `json:"total_score" yaml:"total_score"`
+	NetworkCount   int                      `json:"network_count" yaml:"network_count"`
+	ContainerCount int                      `json:"container_count" yaml:"container_count"`
 }
 
 func (c *KisaraService) GetConfig() (ServiceConfig, error) {
@@ -196,4 +198,17 @@ func (c *ServiceConfigContainer) GetPortProtocolText() string {
 		port_protocols = append(port_protocols, strconv.Itoa(port)+"/"+protocol)
 	}
 	return strings.Join(port_protocols, ",")
+}
+
+func (c *ServiceConfig) ToYaml() string {
+	result, err := yaml.Marshal(c)
+	if err != nil {
+		return ""
+	}
+
+	return string(result)
+}
+
+func (c *ServiceConfig) FromYaml(text_config string) error {
+	return yaml.Unmarshal([]byte(text_config), c)
 }
