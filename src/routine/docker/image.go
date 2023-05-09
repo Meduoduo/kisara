@@ -25,9 +25,10 @@ import (
 	"github.com/shirou/gopsutil/disk"
 )
 
-var image_mutex helper.HighGranularityMutex[string]
-
-var last_update time.Time
+var (
+	image_mutex = helper.NewHighGranularityMutex[string]()
+	last_update time.Time
+)
 
 const (
 	IMAGE_EXPIRE_DURATION = time.Hour * 24 * 30
@@ -101,10 +102,7 @@ func (c *Docker) PullImage(image_name string, event_callback func(message string
 // it will lock the image to avoid image deletion before launch container
 // it will also automatically pull image if not exists
 func (c *Docker) RequireImage(image_name string, message_callback func(string)) (*kisara_types.Image, error) {
-	image_raw, _, err := c.Client.ImageInspectWithRaw(*c.Ctx, image_name)
-	if err != nil {
-		return nil, err
-	}
+	image_raw, _, _ := c.Client.ImageInspectWithRaw(*c.Ctx, image_name)
 
 	image := &kisara_types.Image{}
 	image_id := image_raw.ID

@@ -119,7 +119,7 @@ func InitDocker() {
 		log.Panic("[docker] docker dns not set")
 	}
 
-	//关闭所有处于运行中的docker，并删除镜像
+	//关闭所有处于运行中的docker
 	c := NewDocker()
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
@@ -214,7 +214,9 @@ func (c *Docker) Stop() {
 func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_names []string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
 	log.Info("[docker] start launch container:" + image.Name)
 	// require image first, if image not exist, kisara will pull it first
-	kisara_image, err := c.RequireImage(image.Name, func(message string) {})
+	kisara_image, err := c.RequireImage(image.Name, func(message string) {
+		log.Info("[docker] require image:" + image.Name + " " + message)
+	})
 	if err != nil {
 		return nil, err
 	}

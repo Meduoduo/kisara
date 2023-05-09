@@ -7,6 +7,12 @@ type HighGranularityMutex[K Compareable] struct {
 	s_lock sync.Mutex
 }
 
+func NewHighGranularityMutex[K Compareable]() *HighGranularityMutex[K] {
+	return &HighGranularityMutex[K]{
+		mu: make(map[K]*sync.Mutex),
+	}
+}
+
 func (c *HighGranularityMutex[K]) Lock(id K) {
 	c.s_lock.Lock()
 	// check if s_mu[id] exists
