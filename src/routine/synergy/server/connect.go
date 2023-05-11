@@ -199,15 +199,18 @@ func DeleteService(service_id string) {
 	}
 }
 
+/*
+TODO: currently, this function is too simple.
+*/
 func (c *ClientItem) GetDemand() (float64, error) {
 	if c.ClientStatus == nil {
 		return 0, errors.New("client status is not initialized")
 	}
 
 	status := *c.ClientStatus
-	if status.NetworkUsage >= 0.9 {
-		return 1, nil
-	}
+	// if status.NetworkUsage >= 0.9 {
+	// 	return 1, nil
+	// }
 
 	if status.CPUUsage >= 0.98 {
 		return 1, nil

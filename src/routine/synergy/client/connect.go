@@ -32,6 +32,37 @@ func getServerRequest(uri string) string {
 	return fmt.Sprintf("http://%s:%d%s", serverIp, serverPort, uri)
 }
 
+// upload client status to server
+var (
+	cpu_usage_arr       []float64
+	cpu_usage_arr_index int
+)
+
+const (
+	CPU_USAGE_ARR_SIZE = 10
+)
+
+func setCPUUsageArr(cpu_usage float64) {
+	cpu_usage_arr_index = (cpu_usage_arr_index + 1) % CPU_USAGE_ARR_SIZE
+	cpu_usage_arr[cpu_usage_arr_index] = cpu_usage
+}
+
+func getCPUUsage() float64 {
+	cpu_usage, err := helper.GetCPUUsageTotal()
+	if err != nil {
+		log.Warn("[Connection] Failed to get CPU usage: %s", err.Error())
+		cpu_usage = 0
+	}
+
+	setCPUUsageArr(cpu_usage)
+
+	sum := 0.0
+	for _, v := range cpu_usage_arr {
+		sum += v
+	}
+	return sum / CPU_USAGE_ARR_SIZE
+}
+
 // Client is the main function of the synergy client, it's non-blocking, call it directly without goroutine
 func Client() {
 	log.Info("[Connection] Start continous connection with server")
@@ -52,6 +83,17 @@ func Client() {
 		log.Panic("[Connection] Server port is not set")
 	}
 
+	// init cpu usage array
+	cpu_usage, err := helper.GetCPUUsageTotal()
+	if err != nil {
+		log.Warn("[Connection] Failed to get CPU usage: %s", err.Error())
+		cpu_usage = 0
+	}
+	cpu_usage_arr = make([]float64, CPU_USAGE_ARR_SIZE)
+	for i := 0; i < CPU_USAGE_ARR_SIZE; i++ {
+		setCPUUsageArr(cpu_usage)
+	}
+
 	clientId = uuid.NewV4().String()
 
 	log.Info("[Connection] Finished Initialize client with client id : %s", clientId)
@@ -65,13 +107,8 @@ func Client() {
 	}()
 }
 
-// upload client status to server
 func uploadStatus() {
-	cpu_usage, err := helper.GetCPUUsageTotal()
-	if err != nil {
-		log.Warn("[Connection] Failed to get CPU usage: %s", err.Error())
-		cpu_usage = 0
-	}
+	cpu_usage := getCPUUsage()
 
 	mem_usage, _, _, err := helper.GetMemUsage()
 	if err != nil {
