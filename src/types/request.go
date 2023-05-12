@@ -455,3 +455,76 @@ type ResponseCheckStopService struct {
 	// Finished is the finished of the container
 	Finished bool `json:"finished"`
 }
+
+// request to launch a vm, with the vm image id, cpu limit, memory limit, disk limit, network limit
+// if limit is 0, it's unlimited
+type RequestLaunchVm struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Vm id
+	ImageId string `json:"image_id"`
+	// Cpu limit
+	CpuLimit int `json:"cpu_limit"` // 0.5 = 50% of 1 core
+	// Memory limit
+	MemoryLimit int `json:"memory_limit"` // bytes
+	// Disk limit
+	DiskLimit int `json:"disk_limit"` // bytes
+	// Network limit
+	NetworkLimit int `json:"network_limit"` // bytes per second
+	// NetworkNames is the network names of the container, vm will be connected to these networks if they exist, otherwise, error will be returned
+	NetworkNames []string `json:"network_names"`
+}
+
+type ResponseLaunchVm struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the vm
+	Error string `json:"error"`
+	// Vm
+	MessageResponseId string `json:"response_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
+}
+
+type RequestCheckLaunchVm struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// RequestID is the request ID of the container
+	MessageResponseId string `json:"response_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
+}
+
+type ResponseCheckLaunchVm struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the vm
+	Error string `json:"error"`
+	// Finished is the finished of the vm
+	Finished bool `json:"finished"`
+	// Message
+	Message string `json:"message"`
+}
+
+type ResponseFinalLaunchVmStatus struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the vm
+	Error string `json:"error"`
+	// Vm
+	Vm VM `json:"vm"`
+}
+
+type RequestListVm struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+}
+
+type ResponseListVm struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Vms is the vms of the container
+	Vms []VM `json:"vms"`
+	// Error is the error of the container
+	Error string `json:"error"`
+}

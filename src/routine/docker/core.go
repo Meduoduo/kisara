@@ -27,6 +27,7 @@ import (
 type Docker struct {
 	Client *client.Client
 	Ctx    *context.Context
+	Vm     VirtualMachineInf
 }
 
 type portMapping struct {
@@ -203,6 +204,7 @@ func NewDocker() *Docker {
 		return nil
 	}
 	c.Client = cli
+	c.Vm = GetVirtualMachine()
 	global_docker_instance = &c
 	return global_docker_instance
 }
@@ -261,11 +263,6 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 				Type:   mount.TypeBind,
 				Source: k,
 				Target: v,
-				// set max mount size to 100MB
-				//Options: []string{"size=1g"},
-				TmpfsOptions: &mount.TmpfsOptions{
-					SizeBytes: 100 * 1024 * 1024,
-				},
 			})
 		}
 	}
