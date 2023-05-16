@@ -27,6 +27,11 @@ type KisaraVmNetwork struct {
 }
 
 const (
+	KISARA_VM_NET_TYPE_HOST = "host"
+	KISARA_VM_NET_TYPE_NAT  = "nat"
+)
+
+const (
 	KISARA_VM_LIMIT_BYTES = 1
 	KISARA_VM_LIMIT_KB    = 1024 * KISARA_VM_LIMIT_BYTES
 	KISARA_VM_LIMIT_MB    = 1024 * KISARA_VM_LIMIT_KB
@@ -51,13 +56,15 @@ type KisaraVMImage struct {
 	Size int64 `json:"size"`
 	// created time
 	Created int64 `json:"created"`
+	// Require resource
+	Limit KisaraVmLimit `json:"limit"`
 	// checksum
 	Checksum string `json:"checksum"` // sha256
 }
 
 const (
 	KISARA_VM_ARCH_X86_64   = "x86_64"
-	KISARA_VM_ARCH_x86      = "x86"
+	KISARA_VM_ARCH_X86      = "x86"
 	KISARA_VM_ARCH_ARM      = "arm"
 	KISARA_VM_ARCH_ARM64    = "arm64"
 	KISARA_VM_ARCH_MIPS     = "mips"

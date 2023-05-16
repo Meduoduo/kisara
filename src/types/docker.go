@@ -30,6 +30,7 @@ type Container struct {
 	Status   string            `json:"status"`
 	CPUUsage float64           `json:"cpu_usage"`
 	MemUsage float64           `json:"mem_usage"`
+	Networks []Network         `json:"networks"`
 }
 
 type Network struct {

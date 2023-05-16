@@ -37,7 +37,7 @@ func RandomStr(len int) string {
 	return result
 }
 
-//根据验证码类型与操作名获取key
+// 根据验证码类型与操作名获取key
 func GetCaptchaMethodKey(otype string, method string) string {
 	return "captcha_method_" + method + "_" + otype
 }
@@ -53,7 +53,7 @@ func HandleSensitiveString(src string) string {
 	return string(dst)
 }
 
-//根据ip字符串返回ip的int形式，对于ipv6，映射到ipv4上
+// 根据ip字符串返回ip的int形式，对于ipv6，映射到ipv4上
 func ParseIpFromStr(ip string) int {
 	index := 0
 	ip_len := len(ip)
@@ -126,4 +126,12 @@ func ArrayFilter[T any](arr []T, f func(T) bool) []T {
 	}
 	// shrink the capacity to match the length
 	return res[:len(res):len(res)]
+}
+
+func ArrayMap[T any, R any](arr []T, f func(T) R) []R {
+	res := make([]R, 0, len(arr))
+	for _, v := range arr {
+		res = append(res, f(v))
+	}
+	return res
 }

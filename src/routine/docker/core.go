@@ -39,6 +39,13 @@ type portMapping struct {
 	Protocol           string `json:"protocol"`
 }
 
+const (
+	BYTES  = 1
+	KBYTES = BYTES * 1024
+	MBYTES = KBYTES * 1024
+	GBYTES = MBYTES * 1024
+)
+
 var docker_dns string
 
 type containerMonitor struct {
@@ -213,15 +220,23 @@ func (c *Docker) Stop() {
 	c.Client.Close()
 }
 
-func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protocol string, subnet_names []string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
-	log.Info("[docker] start launch container:" + image.Name)
+func (c *Docker) CreateContainer(
+	image string, uid int, port_protocol string,
+	subnet_names []string, module string,
+	env map[string]string, vol map[string]string,
+	cpu_usage float64, mem_usage int64, disk_usage int64,
+) (*kisara_types.Container, error) {
+	log.Info("[docker] start launch container:" + image)
 	// require image first, if image not exist, kisara will pull it first
-	kisara_image, err := c.RequireImage(image.Name, func(message string) {
-		log.Info("[docker] require image:" + image.Name + " " + message)
+	kisara_image, err := c.RequireImage(image, func(message string) {
+		log.Info("[docker] require image:" + image + " " + message)
 	})
 	if err != nil {
 		return nil, err
 	}
+
+	// network to be stored in the container instance
+	result_networks := []kisara_types.Network{}
 
 	// check if subnet exists
 	endpoints := make(map[string]*network.EndpointSettings)
@@ -230,6 +245,8 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 		if err != nil {
 			return nil, err
 		}
+
+		result_networks = append(result_networks, *subnet_instance)
 
 		endpoints[subnet_name] = &network.EndpointSettings{
 			NetworkID: subnet_instance.Id,
@@ -250,21 +267,17 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 
 	//create env
 	envs := []string{}
-	if len(env_mount) > 0 {
-		for k, v := range env_mount[0] {
-			envs = append(envs, k+"="+v)
-		}
+	for k, v := range env {
+		envs = append(envs, k+"="+v)
 	}
 
 	mounts := []mount.Mount{}
-	if len(env_mount) > 1 {
-		for k, v := range env_mount[1] {
-			mounts = append(mounts, mount.Mount{
-				Type:   mount.TypeBind,
-				Source: k,
-				Target: v,
-			})
-		}
+	for k, v := range vol {
+		mounts = append(mounts, mount.Mount{
+			Type:   mount.TypeBind,
+			Source: k,
+			Target: v,
+		})
 	}
 
 	uuid := uuid.NewV4().String()
@@ -288,12 +301,12 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 			NetworkMode: container.NetworkMode(default_network_name),
 			Mounts:      mounts,
 			Resources: container.Resources{
-				//set max memory to 2GB
-				Memory: 2 * 1024 * 1024 * 1024,
-				//set max cpu to 1 core
-				NanoCPUs: 1 * 1000 * 1000 * 1000,
-				//set max disk to 5G
-				BlkioWeight: 500,
+				//set max memory
+				Memory: mem_usage,
+				//set max cpu
+				NanoCPUs: int64(cpu_usage * 1000.0 * 1000.0 * 1000.0),
+				//set max disk
+				BlkioWeight: uint16(disk_usage / (GBYTES / 100)),
 			},
 			DNS: []string{docker_dns},
 		},
@@ -333,7 +346,7 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 
 	kisara_container := kisara_types.Container{
 		Id:    resp.ID,
-		Image: image.Name,
+		Image: image,
 		Owner: uid,
 		Time:  int(time.Now().Unix()),
 		Uuid:  uuid,
@@ -463,6 +476,8 @@ func (c *Docker) CreateContainer(image *kisara_types.Image, uid int, port_protoc
 
 	log.Info("[docker] launch docker successfully: " + kisara_container.Id)
 
+	kisara_container.Networks = result_networks
+
 	go attachMonitor(kisara_container.Id)
 	go callOnContainerLaunchHooks(c, kisara_container)
 
@@ -488,12 +503,11 @@ func (c *Docker) CheckImageExist(image_name string) bool {
 }
 
 func (c *Docker) LaunchTargetMachine(image_name string, port_protocol string, subnet_name string, uid int, module string) (*kisara_types.Container, error) {
-	image := &kisara_types.Image{
-		Name: image_name,
-		User: "root",
-	}
-
-	container, err := c.CreateContainer(image, uid, port_protocol, []string{subnet_name}, module)
+	container, err := c.CreateContainer(
+		image_name, uid, port_protocol, []string{subnet_name},
+		module, map[string]string{}, map[string]string{},
+		1.0, GBYTES*2, GBYTES*5,
+	)
 	if err != nil {
 		log.Warn("[docker] create container failed: " + err.Error())
 		return nil, err
@@ -505,12 +519,25 @@ func (c *Docker) LaunchTargetMachine(image_name string, port_protocol string, su
 }
 
 func (c *Docker) LaunchContainer(image_name string, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*kisara_types.Container, error) {
-	image := &kisara_types.Image{
-		Name: image_name,
-		User: "root",
+	var env, mount map[string]string
+
+	if len(env_mount) > 0 {
+		env = env_mount[0]
+	} else {
+		env = make(map[string]string)
 	}
 
-	container, err := c.CreateContainer(image, uid, port_protocol, []string{subnet_name}, module, env_mount...)
+	if len(env_mount) > 1 {
+		mount = env_mount[1]
+	} else {
+		mount = make(map[string]string)
+	}
+
+	container, err := c.CreateContainer(
+		image_name, uid, port_protocol, []string{subnet_name}, module,
+		env, mount, 1.0, GBYTES*2, GBYTES*5,
+	)
+
 	if err != nil {
 		log.Warn("[docker] create container failed: " + err.Error())
 		return nil, err
@@ -522,13 +549,11 @@ func (c *Docker) LaunchContainer(image_name string, uid int, port_protocol strin
 }
 
 func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, subnet_name string, env map[string]string) (*kisara_types.Container, error) {
-	image := &kisara_types.Image{
-		Name: image_name,
-		User: "root",
-	}
-
-	//创建容器并留下记录
-	container, err := c.CreateContainer(image, uid, port_protocols, []string{subnet_name}, "awd", env)
+	mount := make(map[string]string)
+	container, err := c.CreateContainer(
+		image_name, uid, port_protocols, []string{subnet_name}, "awd",
+		env, mount, 1.0, GBYTES*2, GBYTES*5,
+	)
 	if err != nil {
 		log.Warn("[docker] create AWD container failed: " + err.Error())
 		return nil, err
@@ -540,13 +565,13 @@ func (c *Docker) LaunchAWD(image_name string, port_protocols string, uid int, su
 }
 
 func (c *Docker) LaunchServiceContainer(image_name string, port_protocols string, uid int, subnet_names []string, env map[string]string) (*kisara_types.Container, error) {
-	image := &kisara_types.Image{
-		Name: image_name,
-		User: "root",
-	}
-
 	//创建容器并留下记录
-	container, err := c.CreateContainer(image, uid, port_protocols, subnet_names, "service", env)
+	mount := make(map[string]string)
+	container, err := c.CreateContainer(
+		image_name, uid, port_protocols,
+		subnet_names, "service", env, mount,
+		1.0, GBYTES*2, GBYTES*5,
+	)
 	if err != nil {
 		log.Warn("[docker] create service container failed: " + err.Error())
 		return nil, err

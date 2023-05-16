@@ -23,7 +23,9 @@ type VirtualMachineInf interface {
 	// init vm
 	Init(docker *Docker) error
 	// launch vm
-	LaunchVm(docker *Docker, image_id string, networks []string, limit types.KisaraVmLimit) (*types.VM, error)
+	LaunchVm(docker *Docker, image_id string, port_protocols string,
+		networks []string,
+		limit types.KisaraVmLimit) (*types.VM, error)
 	// stop vm
 	StopVm(docker *Docker, vm_id string) error
 	// list vm
@@ -33,5 +35,6 @@ type VirtualMachineInf interface {
 }
 
 var (
-	ErrVmNotFound = errors.New("VM not found")
+	ErrVmNotFound         = errors.New("VM not found")
+	ErrVmNotSupportedArch = errors.New("VM arch not supported")
 )
