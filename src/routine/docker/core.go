@@ -793,7 +793,7 @@ func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisa
 
 	ret := &kisara_types.Container{
 		Id:       container.ID,
-		HostPort: container.Config.Labels["host_port"],
+		HostPort: labels["host_port"],
 		Status:   container.Config.Labels["status"],
 		Labels:   labels,
 		// cpu usage
