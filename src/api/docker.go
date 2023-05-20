@@ -381,6 +381,8 @@ func ListNetwork(req types.RequestListNetwork, timeout time.Duration) (types.Res
 		for _, node := range nodes {
 			clients = append(clients, node.ClientID)
 		}
+	} else {
+		clients = []string{req.ClientID}
 	}
 
 	networks := []types.Network{}
