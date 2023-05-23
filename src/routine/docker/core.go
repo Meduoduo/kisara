@@ -586,6 +586,15 @@ func (c *Docker) StopContainer(id string) error {
 	log.Info("[docker] stop conatiner: " + id)
 	//get container labels
 	inspect_container, err := c.Client.ContainerInspect(*c.Ctx, id)
+
+	if err != nil {
+		return errors.New("could not find container")
+	}
+
+	if inspect_container.Config == nil || inspect_container.Config.Labels == nil {
+		return errors.New("could not find container")
+	}
+
 	owner_id, _ := strconv.Atoi(inspect_container.Config.Labels["owner_uid"])
 	kisara_container := kisara_types.Container{
 		Id:    id,
