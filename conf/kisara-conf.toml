@@ -17,4 +17,4 @@ address = "159.75.81.96" # for client, which master should it connect to
 port = 7474
 
 [takina]
-token = "testtest"
+token = "InnerCsustTakina"

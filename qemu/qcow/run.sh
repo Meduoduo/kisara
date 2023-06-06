@@ -1,0 +1,1 @@
+qemu-system-x86_64 -m 2048 -drive file=UbuntuServer.qcow2,format=qcow2,index=0,media=disk -vnc :1 -netdev bridge,id=eth0 -device virtio-net,netdev=eth0

@@ -1,0 +1,9 @@
+FROM debian:11-slim
+
+COPY start.sh /start.sh
+
+RUN sed -i -E 's/(deb|security).debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list \
+    && apt-get update && apt-get install -y qemu-kvm libvirt-clients libvirt-daemon-system bridge-utils virt-manager uml-utilities net-tools isc-dhcp-client && apt-get clean \
+    && chmod +x /start.sh
+
+CMD ["/start.sh"]
