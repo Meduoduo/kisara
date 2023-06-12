@@ -1,6 +1,8 @@
 package types
 
-import "io"
+import (
+	"mime/multipart"
+)
 
 type KisaraResponse struct {
 	// Code is the code of the response
@@ -533,11 +535,11 @@ type ResponseListVm struct {
 
 type RequestNetworkMonitorRun struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// context
-	Context io.Reader `json:"context"`
+	Context *multipart.FileHeader `json:"context" form:"context"`
 	// NetworkName
-	NetworkName string `json:"network_name"`
+	NetworkName string `json:"network_name" form:"network_name" binding:"required"`
 }
 
 type ResponseNetworkMonitorRun struct {

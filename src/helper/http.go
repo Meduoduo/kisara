@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -117,6 +118,19 @@ func HttpPayloadJson(payload interface{}) HttpOptions {
 	return HttpOptions{"payloadJson", payload}
 }
 
+type httpPayloadMultipartFile struct {
+	Filename string
+	File     multipart.FileHeader
+}
+
+func HttpPayloadMultipartFile(filename string, file multipart.FileHeader) httpPayloadMultipartFile {
+	return httpPayloadMultipartFile{filename, file}
+}
+
+func HttpPyloadMultipart(payload map[string]string, files ...httpPayloadMultipartFile) HttpOptions {
+	return HttpOptions{"payloadMultipart", map[string]interface{}{"payload": payload, "files": files}}
+}
+
 func HttpWithRandomUA() HttpOptions {
 	return HttpOptions{"randomUA", true}
 }
@@ -190,14 +204,72 @@ func buildHttpRequest(method string, url string, options ...HttpOptions) (*http.
 				q.Add(k, v)
 			}
 			req.Body = ioutil.NopCloser(strings.NewReader(q.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		case "payloadText":
 			req.Body = ioutil.NopCloser(strings.NewReader(option.Value.(string)))
+			req.Header.Set("Content-Type", "text/plain")
 		case "payloadJson":
 			jsonStr, err := json.Marshal(option.Value)
 			if err != nil {
 				return nil, nil, err
 			}
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(jsonStr))
+			req.Header.Set("Content-Type", "application/json")
+		case "payloadMultipart":
+			payload_inf := option.Value.(map[string]interface{})["payload"]
+			files_inf := option.Value.(map[string]interface{})["files"]
+
+			var payload map[string]string
+			var files []httpPayloadMultipartFile
+
+			ok := false
+			if payload_inf != nil {
+				payload, ok = payload_inf.(map[string]string)
+				if !ok {
+					return nil, nil, fmt.Errorf("payloadMultipart: payload is not map[string]string")
+				}
+			} else {
+				payload = map[string]string{}
+			}
+
+			if files_inf != nil {
+				files, ok = files_inf.([]httpPayloadMultipartFile)
+				if !ok {
+					return nil, nil, fmt.Errorf("payloadMultipart: files is not []httpPayloadMultipartFile")
+				}
+			} else {
+				files = []httpPayloadMultipartFile{}
+			}
+
+			body_buf := &bytes.Buffer{}
+			body_writer := multipart.NewWriter(body_buf)
+
+			for k, v := range payload {
+				body_writer.WriteField(k, v)
+			}
+
+			for _, file := range files {
+				file_writer, err := body_writer.CreateFormFile("file", file.Filename)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				file_info, err := file.File.Open()
+				if err != nil {
+					return nil, nil, err
+				}
+				defer file_info.Close()
+
+				_, err = io.Copy(file_writer, file_info)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+
+			content_type := body_writer.FormDataContentType()
+			body_writer.Close()
+			req.Body = ioutil.NopCloser(body_buf)
+			req.Header.Set("Content-Type", content_type)
 		case "noRedirect":
 			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse

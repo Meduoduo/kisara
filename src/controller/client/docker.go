@@ -500,7 +500,28 @@ func HandleNetworkMonitorRun(r *gin.Context) {
 
 			go func() {
 				docker := docker.NewDocker()
-				container, err := docker.RunNetworkMonitor(rc.NetworkName, rc.Context, func(message string) {
+
+				if rc.Context == nil {
+					request.FinishRequest(response_id, "")
+					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+						Error:    "context is nil",
+						Finished: true,
+					}))
+					return
+				}
+
+				context_file, err := rc.Context.Open()
+				if err != nil {
+					request.FinishRequest(response_id, "")
+					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+						Error:    err.Error(),
+						Finished: true,
+					}))
+					return
+				}
+				defer context_file.Close()
+
+				container, err := docker.RunNetworkMonitor(rc.NetworkName, context_file, func(message string) {
 					request.SetRequestStatusText(response_id, message)
 				})
 

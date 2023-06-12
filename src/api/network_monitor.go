@@ -16,11 +16,18 @@ func RunNetworkMonitor(req types.RequestNetworkMonitorRun, timeout time.Duration
 		return types.ResponseFinalNetworkMonitorStatus{}, errors.New("client not found")
 	}
 
+	if req.Context == nil {
+		return types.ResponseFinalNetworkMonitorStatus{}, errors.New("context is nil")
+	}
+
 	start := time.Now()
 	resp, err := helper.SendPostAndParse[types.ResponseNetworkMonitorRun](
 		client.GenerateClientURI(router.URI_CLIENT_NETWORK_MONITOR_RUN),
 		helper.HttpTimeout(timeout.Milliseconds()),
-		helper.HttpPayloadJson(req),
+		helper.HttpPyloadMultipart(map[string]string{
+			"client_id":    req.ClientID,
+			"network_name": req.NetworkName,
+		}, helper.HttpPayloadMultipartFile("context", *req.Context)),
 	)
 
 	if err != nil {
