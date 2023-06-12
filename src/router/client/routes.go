@@ -26,4 +26,8 @@ func Setup(eng *gin.Engine) {
 	eng.POST(router.URI_CLIENT_STOP_SERVICE, client.HandleStopService)
 	eng.GET(router.URI_CLIENT_STOP_SERVICE_CHECK, client.HandleCheckStopService)
 	eng.GET(router.URI_CLIENT_LIST_SERVICE, client.HandleListService)
+	eng.POST(router.URI_CLIENT_NETWORK_MONITOR_RUN, client.HandleNetworkMonitorRun)
+	eng.GET(router.URI_CLIENT_NETWORK_MONITOR_RUN_CHECK, client.HandleNetworkMonitorRunCheck)
+	eng.POST(router.URI_CLIENT_NETWORK_MONITOR_STOP, client.HandleNetworkMonitorStop)
+	eng.POST(router.URI_CLIENT_NETWORK_MONITOR_SCRIPT, client.HandleNetworkMonitorRunScript)
 }

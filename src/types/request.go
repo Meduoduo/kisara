@@ -1,5 +1,7 @@
 package types
 
+import "io"
+
 type KisaraResponse struct {
 	// Code is the code of the response
 	Code int `json:"code"`
@@ -527,4 +529,85 @@ type ResponseListVm struct {
 	Vms []VM `json:"vms"`
 	// Error is the error of the container
 	Error string `json:"error"`
+}
+
+type RequestNetworkMonitorRun struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// context
+	Context io.Reader `json:"context"`
+	// NetworkName
+	NetworkName string `json:"network_name"`
+}
+
+type ResponseNetworkMonitorRun struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the vm
+	Error string `json:"error"`
+	// Response Id
+	ResponseId string `json:"response_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
+}
+
+type RequestNetworkMonitorCheck struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Response Id
+	ResponseId string `json:"response_id"`
+	// FinishResponseID is the finish response ID of the container
+	FinishResponseID string `json:"finish_response_id"`
+}
+
+type ResponseNetworkMonitorCheck struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the run
+	Error string `json:"error"`
+	// Finished is the finished of the run
+	Finished bool `json:"finished"`
+	// Message
+	Message string `json:"message"`
+	// NetworkMonitor Container Id
+	NetworkMonitorContainerId string `json:"network_monitor_container_id"`
+}
+
+type ResponseFinalNetworkMonitorStatus struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the run
+	Error string `json:"error"`
+	// NetworkMonitor Container Id
+	NetworkMonitorContainerId string `json:"network_monitor_container_id"`
+}
+
+type RequestNetworkMonitorStop struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// NetworkMonitor Container Id
+	NetworkMonitorContainerId string `json:"network_monitor_container_id"`
+}
+
+type ResponseNetworkMonitorStop struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the run
+	Error string `json:"error"`
+}
+
+type RequestNetworkMonitorRunScript struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Containers to be tested
+	Containers KisaraNetworkTestSet `json:"containers"`
+}
+
+type ResponseNetworkMonitorRunScript struct {
+	// ClientID is the unique ID of the client
+	ClientID string `json:"client_id"`
+	// Error is the error of the run
+	Error string `json:"error"`
+	// Containers to be tested
+	Result KisaraNetworkTestResultSet `json:"result"`
 }

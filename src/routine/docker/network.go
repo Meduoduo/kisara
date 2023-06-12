@@ -318,3 +318,75 @@ func (c *Docker) DisconnectContainerFromNetwork(container_id string, network_id 
 	}
 	return nil
 }
+
+type ContainerNetworkInfo struct {
+	ContainerId string
+	Networks    []struct {
+		Network kisara_types.Network
+		Ip      string
+	}
+}
+
+/*
+Get a container's network info
+*/
+func (c *Docker) GetContainerNetwork(container_id string) (ContainerNetworkInfo, error) {
+	ret := ContainerNetworkInfo{}
+	container, err := c.Client.ContainerInspect(*c.Ctx, container_id)
+	if err != nil {
+		return ret, err
+	}
+
+	network_map := make(map[string]types.NetworkResource)
+
+	for _, network := range container.NetworkSettings.Networks {
+		if _, ok := network_map[network.NetworkID]; ok {
+			network_resource := network_map[network.NetworkID]
+
+			ret.Networks = append(ret.Networks, struct {
+				Network kisara_types.Network
+				Ip      string
+			}{
+				Network: kisara_types.Network{
+					Id:       network.NetworkID,
+					Name:     network_resource.Name,
+					Subnet:   network_resource.IPAM.Config[0].Subnet,
+					Internal: network_resource.Internal,
+					Driver:   network_resource.Driver,
+					Scope:    network_resource.Scope,
+				},
+				Ip: network.IPAddress,
+			})
+		}
+
+		docker_network, err := c.Client.NetworkInspect(*c.Ctx, network.NetworkID, types.NetworkInspectOptions{})
+		if err != nil {
+			return ret, err
+		}
+
+		if len(docker_network.IPAM.Config) == 0 {
+			continue
+		}
+
+		if _, ok := network_map[docker_network.ID]; !ok {
+			network_map[docker_network.ID] = docker_network
+		}
+
+		ret.Networks = append(ret.Networks, struct {
+			Network kisara_types.Network
+			Ip      string
+		}{
+			Network: kisara_types.Network{
+				Id:       docker_network.ID,
+				Name:     docker_network.Name,
+				Subnet:   docker_network.IPAM.Config[0].Subnet,
+				Internal: docker_network.Internal,
+				Driver:   docker_network.Driver,
+				Scope:    docker_network.Scope,
+			},
+			Ip: network.IPAddress,
+		})
+	}
+
+	return ret, nil
+}

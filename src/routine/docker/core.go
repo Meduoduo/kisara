@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 )
 
 type Docker struct {
+	KisaraNetworkMonitor
 	Client *client.Client
 	Ctx    *context.Context
 	Vm     VirtualMachineInf
@@ -693,6 +695,58 @@ func (c *Docker) Exec(container_id string, cmd string) error {
 	return nil
 }
 
+func (c *Docker) ExecWarp(container_id string, cmd string, timeout time.Duration) ([]byte, error) {
+	exec, err := c.Client.ContainerExecCreate(*c.Ctx, container_id, types.ExecConfig{
+		AttachStdin:  true,
+		AttachStderr: true,
+		AttachStdout: true,
+		Cmd:          []string{"sh", "-c", cmd},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.Client.ContainerExecAttach(*c.Ctx, exec.ID, types.ExecStartCheck{
+		Detach: false,
+		Tty:    false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp.Conn.SetDeadline(time.Now().Add(timeout))
+
+	var result []byte
+	last := make([]byte, 0)
+	for {
+		if len(last) > 8 {
+			length := binary.BigEndian.Uint64(last[4:8])
+			if len(last) > 8+int(length) {
+				result = append(result, last[8:8+length]...)
+				last = last[8+length:]
+				continue
+			}
+		}
+
+		buf := make([]byte, 1024)
+		n, err := resp.Reader.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		if len(last) == 0 {
+			last = buf[:n]
+		} else {
+			last = append(last, buf[:n]...)
+		}
+	}
+
+	return result, nil
+}
+
 func (c *Docker) ListContainer() (*[]*kisara_types.Container, error) {
 	containers, err := c.Client.ContainerList(*c.Ctx, types.ContainerListOptions{
 		All: true,
@@ -823,4 +877,48 @@ func (c *Docker) GetContainerNumber() (int, error) {
 		return 0, err
 	}
 	return len(containers), nil
+}
+
+/*
+BuildImage will build a docker image from a tar file
+*/
+func (c *Docker) BuildImage(tar_file io.Reader, image_name string, message_callback func(string), fault_callback func(string), finish ...chan struct{}) error {
+	resp, err := c.Client.ImageBuild(*c.Ctx, tar_file, types.ImageBuildOptions{
+		Tags:        []string{image_name},
+		NoCache:     true,
+		PullParent:  true,
+		Remove:      true,
+		ForceRemove: true,
+		Context:     tar_file,
+	})
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer resp.Body.Close()
+		defer func() {
+			if len(finish) > 0 {
+				finish[0] <- struct{}{}
+			}
+		}()
+
+		buf := make([]byte, 1024)
+		for {
+			n, err := resp.Body.Read(buf)
+			if err != nil && err != io.EOF {
+				fault_callback(err.Error())
+				return
+			}
+
+			if n == 0 || err == io.EOF {
+				break
+			}
+			message_callback(string(buf[:n]))
+		}
+
+		message_callback("build image successfully")
+	}()
+
+	return nil
 }

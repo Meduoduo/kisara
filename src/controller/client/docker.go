@@ -479,3 +479,110 @@ func HandleCheckStopService(r *gin.Context) {
 		}))
 	})
 }
+
+type runNetworkMonitorResponseFormat struct {
+	Error       string `json:"error"`
+	Finished    bool   `json:"finished"`
+	ContainerId string `json:"container_id"`
+}
+
+func HandleNetworkMonitorRun(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestNetworkMonitorRun) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := &types.ResponseNetworkMonitorRun{}
+			resp.ClientID = rc.ClientID
+
+			response_id := request.CreateNewResponse()
+			finsihed_response_id := request.CreateNewResponse()
+
+			resp.ResponseId = response_id
+			resp.FinishResponseID = finsihed_response_id
+
+			go func() {
+				docker := docker.NewDocker()
+				container, err := docker.RunNetworkMonitor(rc.NetworkName, rc.Context, func(message string) {
+					request.SetRequestStatusText(response_id, message)
+				})
+
+				if err != nil {
+					request.FinishRequest(response_id, "")
+					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+						Error:    err.Error(),
+						Finished: true,
+					}))
+				} else {
+					request.FinishRequest(response_id, "")
+					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+						Error:       err.Error(),
+						Finished:    true,
+						ContainerId: container.ContainerId,
+					}))
+				}
+			}()
+
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleNetworkMonitorRunCheck(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestNetworkMonitorCheck) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := types.ResponseNetworkMonitorCheck{}
+			resp.ClientID = rc.ClientID
+
+			response_id := rc.ResponseId
+			finished_response_id := rc.FinishResponseID
+
+			response_text, _ := request.GetResponse(response_id)
+			finished_response_text, finished := request.GetResponse(finished_response_id)
+
+			resp.Message = response_text
+			resp.Finished = finished
+			if finished {
+				status := jsonHelperDecoder[runNetworkMonitorResponseFormat](finished_response_text)
+				resp.Error = status.Error
+				resp.NetworkMonitorContainerId = status.ContainerId
+			}
+
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleNetworkMonitorStop(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestNetworkMonitorStop) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := types.ResponseNetworkMonitorStop{}
+			resp.ClientID = rc.ClientID
+
+			docker := docker.NewDocker()
+
+			err := docker.StopNetworkMonitor(&types.KisaraNetworkMonitorContainer{
+				ContainerId: rc.NetworkMonitorContainerId,
+			})
+
+			resp.Error = err.Error()
+
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
+
+func HandleNetworkMonitorRunScript(r *gin.Context) {
+	controller.BindRequest(r, func(rc types.RequestNetworkMonitorRunScript) {
+		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
+			resp := types.ResponseNetworkMonitorRunScript{}
+			resp.ClientID = rc.ClientID
+
+			docker := docker.NewDocker()
+
+			result, err := docker.RunNetworkMonitorScript(&rc.Containers)
+
+			resp.Error = err.Error()
+			resp.Result = *result
+
+			return types.SuccessResponse(resp)
+		}))
+	})
+}
