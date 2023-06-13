@@ -120,10 +120,10 @@ func HttpPayloadJson(payload interface{}) HttpOptions {
 
 type httpPayloadMultipartFile struct {
 	Filename string
-	File     multipart.FileHeader
+	File     io.Reader
 }
 
-func HttpPayloadMultipartFile(filename string, file multipart.FileHeader) httpPayloadMultipartFile {
+func HttpPayloadMultipartFile(filename string, file io.Reader) httpPayloadMultipartFile {
 	return httpPayloadMultipartFile{filename, file}
 }
 
@@ -254,13 +254,7 @@ func buildHttpRequest(method string, url string, options ...HttpOptions) (*http.
 					return nil, nil, err
 				}
 
-				file_info, err := file.File.Open()
-				if err != nil {
-					return nil, nil, err
-				}
-				defer file_info.Close()
-
-				_, err = io.Copy(file_writer, file_info)
+				_, err = io.Copy(file_writer, file.File)
 				if err != nil {
 					return nil, nil, err
 				}

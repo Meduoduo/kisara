@@ -487,7 +487,7 @@ type runNetworkMonitorResponseFormat struct {
 }
 
 func HandleNetworkMonitorRun(r *gin.Context) {
-	controller.BindRequest(r, func(rc types.RequestNetworkMonitorRun) {
+	controller.BindRequest(r, func(rc types.RequestNetworkMonitorRunToByRecieved) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseNetworkMonitorRun{}
 			resp.ClientID = rc.ClientID

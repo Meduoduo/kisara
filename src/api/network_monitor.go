@@ -27,7 +27,7 @@ func RunNetworkMonitor(req types.RequestNetworkMonitorRun, timeout time.Duration
 		helper.HttpPyloadMultipart(map[string]string{
 			"client_id":    req.ClientID,
 			"network_name": req.NetworkName,
-		}, helper.HttpPayloadMultipartFile("context", *req.Context)),
+		}, helper.HttpPayloadMultipartFile("context", req.Context)),
 	)
 
 	if err != nil {

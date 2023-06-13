@@ -1,6 +1,7 @@
 package types
 
 import (
+	"io"
 	"mime/multipart"
 )
 
@@ -533,13 +534,24 @@ type ResponseListVm struct {
 	Error string `json:"error"`
 }
 
+// send request
 type RequestNetworkMonitorRun struct {
 	// ClientID is the unique ID of the client
 	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// context
-	Context *multipart.FileHeader `json:"context" form:"context"`
+	Context io.Reader `json:"context" form:"context"`
 	// NetworkName
 	NetworkName string `json:"network_name" form:"network_name" binding:"required"`
+}
+
+// parsed request
+type RequestNetworkMonitorRunToByRecieved struct {
+	// ClientID is the unique ID of the client
+	ClientID string `form:"client_id" binding:"required"`
+	// context
+	Context *multipart.FileHeader `form:"context" binding:"required"`
+	// NetworkName
+	NetworkName string `form:"network_name" binding:"required"`
 }
 
 type ResponseNetworkMonitorRun struct {
