@@ -21,7 +21,7 @@ func RunNetworkMonitor(req types.RequestNetworkMonitorRun, timeout time.Duration
 	}
 
 	start := time.Now()
-	resp, err := helper.SendPostAndParse[types.ResponseNetworkMonitorRun](
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseNetworkMonitorRun]](
 		client.GenerateClientURI(router.URI_CLIENT_NETWORK_MONITOR_RUN),
 		helper.HttpTimeout(timeout.Milliseconds()),
 		helper.HttpPyloadMultipart(map[string]string{
@@ -34,16 +34,20 @@ func RunNetworkMonitor(req types.RequestNetworkMonitorRun, timeout time.Duration
 		return types.ResponseFinalNetworkMonitorStatus{}, err
 	}
 
-	if resp.Error != "" {
-		return types.ResponseFinalNetworkMonitorStatus{}, errors.New(resp.Error)
+	if resp.Code != 0 {
+		return types.ResponseFinalNetworkMonitorStatus{}, errors.New(resp.Message)
+	}
+
+	if resp.Data.Error != "" {
+		return types.ResponseFinalNetworkMonitorStatus{}, errors.New(resp.Data.Error)
 	}
 
 	if time.Since(start) < time.Millisecond*10 {
 		return types.ResponseFinalNetworkMonitorStatus{}, errors.New("timeout")
 	}
 
-	response_id := resp.ResponseId
-	finish_response_id := resp.FinishResponseID
+	response_id := resp.Data.ResponseId
+	finish_response_id := resp.Data.FinishResponseID
 
 	timeout_timer := time.NewTimer(timeout)
 	cycle_tick := time.NewTicker(time.Second * 1)
@@ -55,7 +59,7 @@ func RunNetworkMonitor(req types.RequestNetworkMonitorRun, timeout time.Duration
 		case <-timeout_timer.C:
 			return types.ResponseFinalNetworkMonitorStatus{}, errors.New("timeout")
 		case <-cycle_tick.C:
-			resp, err := helper.SendGetAndParse[types.ResponseNetworkMonitorCheck](
+			resp, err := helper.SendGetAndParse[types.KisaraResponseWrap[types.ResponseNetworkMonitorCheck]](
 				client.GenerateClientURI(router.URI_CLIENT_NETWORK_MONITOR_RUN_CHECK),
 				helper.HttpTimeout((timeout - time.Since(start)).Milliseconds()),
 				helper.HttpPayloadJson(types.RequestNetworkMonitorCheck{
@@ -69,16 +73,21 @@ func RunNetworkMonitor(req types.RequestNetworkMonitorRun, timeout time.Duration
 				return types.ResponseFinalNetworkMonitorStatus{}, err
 			}
 
-			message_callback(resp.Message)
-			if resp.Finished {
-				if resp.Error != "" {
-					return types.ResponseFinalNetworkMonitorStatus{}, errors.New(resp.Error)
-				}
+			if resp.Code != 0 {
+				return types.ResponseFinalNetworkMonitorStatus{}, errors.New(resp.Message)
+			}
 
+			if resp.Data.Error != "" {
+				return types.ResponseFinalNetworkMonitorStatus{}, errors.New(resp.Data.Error)
+			}
+
+			message_callback(resp.Data.Message)
+
+			if resp.Data.Finished {
 				return types.ResponseFinalNetworkMonitorStatus{
 					ClientID:                  req.ClientID,
-					Error:                     resp.Error,
-					NetworkMonitorContainerId: resp.NetworkMonitorContainerId,
+					Error:                     resp.Data.Error,
+					NetworkMonitorContainerId: resp.Data.NetworkMonitorContainerId,
 				}, nil
 			}
 		}
@@ -91,7 +100,7 @@ func StopNetworkMonitor(req types.RequestNetworkMonitorStop, timeout time.Durati
 		return types.ResponseNetworkMonitorStop{}, errors.New("client not found")
 	}
 
-	resp, err := helper.SendPostAndParse[types.ResponseNetworkMonitorStop](
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseNetworkMonitorStop]](
 		client.GenerateClientURI(router.URI_CLIENT_NETWORK_MONITOR_STOP),
 		helper.HttpTimeout(timeout.Milliseconds()),
 		helper.HttpPayloadJson(req),
@@ -101,11 +110,15 @@ func StopNetworkMonitor(req types.RequestNetworkMonitorStop, timeout time.Durati
 		return types.ResponseNetworkMonitorStop{}, err
 	}
 
-	if resp.Error != "" {
-		return types.ResponseNetworkMonitorStop{}, errors.New(resp.Error)
+	if resp.Code != 0 {
+		return types.ResponseNetworkMonitorStop{}, errors.New(resp.Message)
 	}
 
-	return resp, nil
+	if resp.Data.Error != "" {
+		return types.ResponseNetworkMonitorStop{}, errors.New(resp.Data.Error)
+	}
+
+	return resp.Data, nil
 }
 
 func RunNetworkMonitorScript(req types.RequestNetworkMonitorRunScript, timeout time.Duration) (types.ResponseNetworkMonitorRunScript, error) {
@@ -114,7 +127,7 @@ func RunNetworkMonitorScript(req types.RequestNetworkMonitorRunScript, timeout t
 		return types.ResponseNetworkMonitorRunScript{}, errors.New("client not found")
 	}
 
-	resp, err := helper.SendPostAndParse[types.ResponseNetworkMonitorRunScript](
+	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseNetworkMonitorRunScript]](
 		client.GenerateClientURI(router.URI_CLIENT_NETWORK_MONITOR_SCRIPT),
 		helper.HttpTimeout(timeout.Milliseconds()),
 		helper.HttpPayloadJson(req),
@@ -124,9 +137,13 @@ func RunNetworkMonitorScript(req types.RequestNetworkMonitorRunScript, timeout t
 		return types.ResponseNetworkMonitorRunScript{}, err
 	}
 
-	if resp.Error != "" {
-		return types.ResponseNetworkMonitorRunScript{}, errors.New(resp.Error)
+	if resp.Code != 0 {
+		return types.ResponseNetworkMonitorRunScript{}, errors.New(resp.Message)
 	}
 
-	return resp, nil
+	if resp.Data.Error != "" {
+		return types.ResponseNetworkMonitorRunScript{}, errors.New(resp.Data.Error)
+	}
+
+	return resp.Data, nil
 }

@@ -499,48 +499,52 @@ func HandleNetworkMonitorRun(r *gin.Context) {
 			resp.ResponseId = response_id
 			resp.FinishResponseID = finsihed_response_id
 
-			go func() {
-				docker := docker.NewDocker()
+			if rc.Context == nil {
+				resp.Error = "context is nil"
+			} else {
+				go func() {
+					docker := docker.NewDocker()
 
-				if rc.Context == nil {
-					request.FinishRequest(response_id, "")
-					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
-						Error:    "context is nil",
-						Finished: true,
-					}))
-					return
-				}
+					if rc.Context == nil {
+						request.FinishRequest(response_id, "")
+						request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+							Error:    "context is nil",
+							Finished: true,
+						}))
+						return
+					}
 
-				context_file, err := rc.Context.Open()
-				if err != nil {
-					request.FinishRequest(response_id, "")
-					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
-						Error:    err.Error(),
-						Finished: true,
-					}))
-					return
-				}
-				defer context_file.Close()
+					context_file, err := rc.Context.Open()
+					if err != nil {
+						request.FinishRequest(response_id, "")
+						request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+							Error:    err.Error(),
+							Finished: true,
+						}))
+						return
+					}
+					defer context_file.Close()
 
-				container, err := docker.RunNetworkMonitor(rc.NetworkName, context_file, func(message string) {
-					request.SetRequestStatusText(response_id, message)
-				})
+					container, err := docker.RunNetworkMonitor(rc.NetworkName, context_file, func(message string) {
+						request.SetRequestStatusText(response_id, message)
+					})
 
-				if err != nil {
-					request.FinishRequest(response_id, "")
-					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
-						Error:    err.Error(),
-						Finished: true,
-					}))
-				} else {
-					request.FinishRequest(response_id, "")
-					request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
-						Error:       err.Error(),
-						Finished:    true,
-						ContainerId: container.ContainerId,
-					}))
-				}
-			}()
+					if err != nil {
+						request.FinishRequest(response_id, "")
+						request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+							Error:    err.Error(),
+							Finished: true,
+						}))
+					} else {
+						request.FinishRequest(response_id, "")
+						request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
+							Error:       err.Error(),
+							Finished:    true,
+							ContainerId: container.ContainerId,
+						}))
+					}
+				}()
+			}
 
 			return types.SuccessResponse(resp)
 		}))

@@ -549,7 +549,7 @@ type RequestNetworkMonitorRunToByRecieved struct {
 	// ClientID is the unique ID of the client
 	ClientID string `form:"client_id" binding:"required"`
 	// context
-	Context *multipart.FileHeader `form:"context" binding:"required"`
+	Context *multipart.FileHeader `form:"file" binding:"required"`
 	// NetworkName
 	NetworkName string `form:"network_name" binding:"required"`
 }

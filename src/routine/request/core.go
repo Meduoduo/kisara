@@ -50,7 +50,7 @@ func CreateNewResponse() string {
 	return request_id
 }
 
-//第二个返回参数为当前请求是否已经完成
+// 第二个返回参数为当前请求是否已经完成
 func GetResponse(request_id string) (string, bool) {
 	value, _ := request_field.Map.Load(request_id)
 	if value != nil {
