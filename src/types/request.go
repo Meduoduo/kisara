@@ -43,11 +43,11 @@ func ErrorResponse(code int, message string) KisaraResponse {
 
 type RequestConnect struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// ClientIp
-	ClientIp string `json:"client_ip"`
+	ClientIp string `json:"client_ip" form:"client_ip" binding:"required"`
 	// ClientPort
-	ClientPort int `json:"client_port"`
+	ClientPort int `json:"client_port" form:"client_port" binding:"required"`
 	// callback
 	Callback func(ResponseConnect) `json:"-"`
 }
@@ -61,7 +61,7 @@ type ResponseConnect struct {
 
 type RequestDisconnect struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 }
 
 type ResponseDisconnect struct {
@@ -71,19 +71,19 @@ type ResponseDisconnect struct {
 
 type RequestStatus struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// CPUUsage is the CPU usage of the client
-	CPUUsage float64 `json:"cpu_usage"`
+	CPUUsage float64 `json:"cpu_usage" form:"cpu_usage" binding:"required"`
 	// MemoryUsage is the memory usage of the client
-	MemoryUsage float64 `json:"memory_usage"`
+	MemoryUsage float64 `json:"memory_usage" form:"memory_usage" binding:"required"`
 	// DiskUsage is the disk usage of the client
-	DiskUsage float64 `json:"disk_usage"`
+	DiskUsage float64 `json:"disk_usage" form:"disk_usage" binding:"required"`
 	// NetworkUsage is the network usage of the client
-	NetworkUsage float64 `json:"network_usage"`
+	NetworkUsage float64 `json:"network_usage" form:"network_usage" binding:"required"`
 	// ContainerNum is the number of containers of the client
-	ContainerNum int `json:"container_num"`
+	ContainerNum int `json:"container_num" form:"container_num" binding:"required"`
 	// ContainerUsage is the usage of containers of the client
-	ContainerUsage float64 `json:"container_usage"`
+	ContainerUsage float64 `json:"container_usage" form:"container_usage" binding:"required"`
 }
 
 type ResponseStatus struct {
@@ -93,7 +93,7 @@ type ResponseStatus struct {
 
 type RequestHeartBeat struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 }
 
 type ResponseHeartBeat struct {
@@ -105,34 +105,34 @@ type ResponseHeartBeat struct {
 
 type RequestLaunchContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) CreateContainer(image *Image, uid int, port_protocol string, subnet_name string, module string, env_mount ...map[string]string) (*Container, error)
 	// Image is the image of the container
-	Image string `json:"image"`
+	Image string `json:"image" form:"image" binding:"required"`
 	// UID is the uid of the container
-	UID int `json:"uid"`
+	UID int `json:"uid" form:"uid" binding:"required"`
 	// PortProtocol is the port protocol of the container
-	PortProtocol string `json:"port_protocol"`
+	PortProtocol string `json:"port_protocol" form:"port_protocol" binding:"required"`
 	// SubnetName is the subnet name of the container
-	SubnetName string `json:"subnet_name"`
+	SubnetName string `json:"subnet_name" form:"subnet_name" binding:"required"`
 	// Module is the module of the container
-	Module string `json:"module"`
+	Module string `json:"module" form:"module" binding:"required"`
 	// EnvMount is the env mount of the container
-	EnvMount []map[string]string `json:"env_mount"`
+	EnvMount []map[string]string `json:"env_mount" form:"env_mount"`
 }
 
 type ResponseLaunchContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// Response Id
-	ResponseId string `json:"response_id"`
+	ResponseId string `json:"response_id" form:"response_id" binding:"required"`
 }
 
 type RequestCheckLaunchStatus struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// Response Id
-	ResponseId string `json:"response_id"`
+	ResponseId string `json:"response_id" form:"response_id" binding:"required"`
 }
 
 type ResponseCheckLaunchStatus struct {
@@ -157,9 +157,9 @@ type ResponseFinalLaunchStatus struct {
 
 type RequestStopContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// ContainerID is the container ID of the container
-	ContainerID string `json:"container_id"`
+	ContainerID string `json:"container_id" form:"container_id" binding:"required"`
 }
 
 type ResponseStopContainer struct {
@@ -171,9 +171,9 @@ type ResponseStopContainer struct {
 
 type RequestRemoveContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// ContainerID is the container ID of the container
-	ContainerID string `json:"container_id"`
+	ContainerID string `json:"container_id" form:"container_id" binding:"required"`
 }
 
 type ResponseRemoveContainer struct {
@@ -185,7 +185,7 @@ type ResponseRemoveContainer struct {
 
 type RequestListContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) ListContainer() (*[]*kisara_types.Container, error)
 }
 
@@ -200,12 +200,12 @@ type ResponseListContainer struct {
 
 type RequestExecContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) Exec(container_id string, cmd string) error
 	// ContainerID is the container ID of the container
-	ContainerID string `json:"container_id"`
+	ContainerID string `json:"container_id" form:"container_id" binding:"required"`
 	// Cmd is the cmd of the container
-	Cmd string `json:"cmd"`
+	Cmd string `json:"cmd" form:"cmd" binding:"required"`
 }
 
 type ResponseExecContainer struct {
@@ -217,12 +217,12 @@ type ResponseExecContainer struct {
 
 type RequestInspectContainer struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) InspectContainer(container_id string, has_state ...bool) (*kisara_types.Container, error)
 	// ContainerID is the container ID of the container
-	ContainerIDs []string `json:"container_id"`
+	ContainerIDs []string `json:"container_id" form:"container_id" binding:"required"`
 	// HasState is the has state of the container
-	HasState bool `json:"has_state"`
+	HasState bool `json:"has_state" form:"has_state" binding:"required"`
 }
 
 type ResponseInspectContainer struct {
@@ -236,7 +236,7 @@ type ResponseInspectContainer struct {
 
 type RequestListImage struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) ListImage() (*[]*kisara_types.Image, error)
 }
 
@@ -251,10 +251,10 @@ type ResponseListImage struct {
 
 type RequestDeleteImage struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) DeleteImage(image_id string) error
 	// ImageID is the image ID of the container
-	ImageID string `json:"image_id"`
+	ImageID string `json:"image_id" form:"image_id" binding:"required"`
 }
 
 type ResponseDeleteImage struct {
@@ -266,14 +266,14 @@ type ResponseDeleteImage struct {
 
 type RequestPullImage struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func HandleControllerRequestPullImage(request_id string, image_name string, port_protocol string, user string)
 	// ImageName is the image name of the container
-	ImageName string `json:"image_name"`
+	ImageName string `json:"image_name" form:"image_name" binding:"required"`
 	// PortProtocol is the port protocol of the container
-	PortProtocol string `json:"port_protocol"`
+	PortProtocol string `json:"port_protocol" form:"port_protocol" binding:"required"`
 	// User is the user of the container
-	User string `json:"user"`
+	User string `json:"user" form:"user" binding:"required"`
 }
 
 type ResponsePullImage struct {
@@ -289,12 +289,12 @@ type ResponsePullImage struct {
 
 type RequestCheckPullImage struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func HandleControllerRequestCheckPullImage(request_id string)
 	// RequestID is the request ID of the container
-	MessageResponseId string `json:"message_resposne_id"`
+	MessageResponseId string `json:"message_resposne_id" form:"message_resposne_id" binding:"required"`
 	// FinishResponseID is the finish response ID of the container
-	FinishResponseID string `json:"finish_response_id"`
+	FinishResponseID string `json:"finish_response_id" form:"finish_response_id" binding:"required"`
 }
 
 type ResponseCheckPullImage struct {
@@ -317,16 +317,16 @@ type ResponseFinalPullImageStatus struct {
 
 type RequestCreateNetwork struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) CreateNetwork(subnet string, name string, host_join bool) error
 	// Subnet is the subnet of the container
-	Subnet string `json:"subnet"`
+	Subnet string `json:"subnet" form:"subnet" binding:"required"`
 	// Name is the name of the container
-	Name string `json:"name"`
+	Name string `json:"name" form:"name" binding:"required"`
 	// Internal is the host join of the container
-	Internal bool `json:"internal"`
+	Internal bool `json:"internal" form:"internal" binding:"required"`
 	// Driver
-	Driver string `json:"driver"`
+	Driver string `json:"driver" form:"driver" binding:"required"`
 }
 
 type ResponseCreateNetwork struct {
@@ -338,10 +338,10 @@ type ResponseCreateNetwork struct {
 
 type RequestRemoveNetwork struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) RemoveNetwork(network_id string) error
 	// NetworkID is the network ID of the container
-	NetworkID string `json:"network_id"`
+	NetworkID string `json:"network_id" form:"network_id" binding:"required"`
 }
 
 type ResponseRemoveNetwork struct {
@@ -353,7 +353,7 @@ type ResponseRemoveNetwork struct {
 
 type RequestListNetwork struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// func (c *Docker) ListNetwork() (*[]*types.Network, error)
 }
 
@@ -368,9 +368,9 @@ type ResponseListNetwork struct {
 
 type RequestLaunchService struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// ServiceConfig
-	ServiceConfig KisaraService `json:"service_config"`
+	ServiceConfig KisaraService `json:"service_config" form:"service_config" binding:"required"`
 }
 
 type ResponseLaunchService struct {
@@ -386,11 +386,11 @@ type ResponseLaunchService struct {
 
 type RequestCheckLaunchService struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// RequestID is the request ID of the container
-	MessageResponseId string `json:"response_id"`
+	MessageResponseId string `json:"response_id" form:"response_id" binding:"required"`
 	// FinishResponseID is the finish response ID of the container
-	FinishResponseID string `json:"finish_response_id"`
+	FinishResponseID string `json:"finish_response_id" form:"finish_response_id" binding:"required"`
 }
 
 type ResponseCheckLaunchService struct {
@@ -417,7 +417,7 @@ type ResponseFinalLaunchServiceStatus struct {
 
 type RequestListService struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 }
 
 type ResponseListService struct {
@@ -431,9 +431,9 @@ type ResponseListService struct {
 
 type RequestStopService struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// ServiceID
-	ServiceID string `json:"service_id"`
+	ServiceID string `json:"service_id" form:"service_id" binding:"required"`
 }
 
 type ResponseStopService struct {
@@ -447,9 +447,9 @@ type ResponseStopService struct {
 
 type RequestCheckStopService struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// ResponseID
-	ResponseID string `json:"response_id"`
+	ResponseID string `json:"response_id" form:"response_id" binding:"required"`
 }
 
 type ResponseCheckStopService struct {
@@ -465,19 +465,19 @@ type ResponseCheckStopService struct {
 // if limit is 0, it's unlimited
 type RequestLaunchVm struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// Vm id
-	ImageId string `json:"image_id"`
+	ImageId string `json:"image_id" form:"image_id" binding:"required"`
 	// Cpu limit
-	CpuLimit int `json:"cpu_limit"` // 0.5 = 50% of 1 core
+	CpuLimit int `json:"cpu_limit" form:"cpu_limit" binding:"required"`
 	// Memory limit
-	MemoryLimit int `json:"memory_limit"` // bytes
+	MemoryLimit int `json:"memory_limit" form:"memory_limit" binding:"required"`
 	// Disk limit
-	DiskLimit int `json:"disk_limit"` // bytes
+	DiskLimit int `json:"disk_limit" form:"disk_limit" binding:"required"`
 	// Network limit
-	NetworkLimit int `json:"network_limit"` // bytes per second
+	NetworkLimit int `json:"network_limit" form:"network_limit" binding:"required"`
 	// NetworkNames is the network names of the container, vm will be connected to these networks if they exist, otherwise, error will be returned
-	NetworkNames []string `json:"network_names"`
+	NetworkNames []string `json:"network_names" form:"network_names" binding:"required"`
 }
 
 type ResponseLaunchVm struct {
@@ -493,11 +493,11 @@ type ResponseLaunchVm struct {
 
 type RequestCheckLaunchVm struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// RequestID is the request ID of the container
-	MessageResponseId string `json:"response_id"`
+	MessageResponseId string `json:"response_id" form:"response_id" binding:"required"`
 	// FinishResponseID is the finish response ID of the container
-	FinishResponseID string `json:"finish_response_id"`
+	FinishResponseID string `json:"finish_response_id" form:"finish_response_id" binding:"required"`
 }
 
 type ResponseCheckLaunchVm struct {
@@ -522,7 +522,7 @@ type ResponseFinalLaunchVmStatus struct {
 
 type RequestListVm struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 }
 
 type ResponseListVm struct {
@@ -567,11 +567,11 @@ type ResponseNetworkMonitorRun struct {
 
 type RequestNetworkMonitorCheck struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// Response Id
-	ResponseId string `json:"response_id"`
+	ResponseId string `json:"response_id" form:"response_id" binding:"required"`
 	// FinishResponseID is the finish response ID of the container
-	FinishResponseID string `json:"finish_response_id"`
+	FinishResponseID string `json:"finish_response_id" form:"finish_response_id" binding:"required"`
 }
 
 type ResponseNetworkMonitorCheck struct {
@@ -598,9 +598,9 @@ type ResponseFinalNetworkMonitorStatus struct {
 
 type RequestNetworkMonitorStop struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// NetworkMonitor Container Id
-	NetworkMonitorContainerId string `json:"network_monitor_container_id"`
+	NetworkMonitorContainerId string `json:"network_monitor_container_id" form:"network_monitor_container_id" binding:"required"`
 }
 
 type ResponseNetworkMonitorStop struct {
@@ -612,9 +612,9 @@ type ResponseNetworkMonitorStop struct {
 
 type RequestNetworkMonitorRunScript struct {
 	// ClientID is the unique ID of the client
-	ClientID string `json:"client_id"`
+	ClientID string `json:"client_id" form:"client_id" binding:"required"`
 	// Containers to be tested
-	Containers KisaraNetworkTestSet `json:"containers"`
+	Containers KisaraNetworkTestSet `json:"containers" form:"containers" binding:"required"`
 }
 
 type ResponseNetworkMonitorRunScript struct {

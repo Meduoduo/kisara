@@ -285,6 +285,7 @@ func HandleListContainer(r *gin.Context) {
 }
 
 func HandleListSubnet(r *gin.Context) {
+	// list all parameters in gin
 	controller.BindRequest(r, func(rc types.RequestListNetwork) {
 		r.JSON(200, checkClientKey(rc.ClientID, func() types.KisaraResponse {
 			resp := &types.ResponseListNetwork{}
