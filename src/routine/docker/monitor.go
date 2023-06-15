@@ -60,22 +60,24 @@ func registerMonitorToNetwork(network_id string, test_container_id string) {
 	network_monitor[network_id] = append(network_monitor[network_id], test_container_id)
 }
 
-func unregisterMonitorFromNetwork(network_id string, test_container_id string) {
+func unregisterMonitorFromNetwork(network_id string, test_container_id string) error {
 	network_monitor_mux.Lock()
 	defer network_monitor_mux.Unlock()
 
 	// check if the network exists
 	if _, ok := network_monitor[network_id]; !ok {
-		return
+		return fmt.Errorf("network: %s not found", network_id)
 	}
 
 	// check if the container has been registered
 	for index, container_id := range network_monitor[network_id] {
 		if container_id == test_container_id {
 			network_monitor[network_id] = append(network_monitor[network_id][:index], network_monitor[network_id][index+1:]...)
-			return
+			return nil
 		}
 	}
+
+	return fmt.Errorf("monitor: %s not found", test_container_id)
 }
 
 // return the network id of the test container
@@ -97,11 +99,11 @@ func getMonitorContainerNetwork(monitor_container_id string) (string, error) {
 func (c *Docker) RunNetworkMonitor(network_name string, context io.Reader, message_callback func(string)) (*types.KisaraNetworkMonitorContainer, error) {
 	// build the image
 	image_name := c.generateTestImageName(network_name)
-
-	// check if the image exists
-	if c.CheckImageExist(image_name) {
+	image, err := c.GetImage(image_name)
+	if err == nil {
+		// check if the image exists
 		// remove the image
-		err := c.DeleteImage(image_name)
+		err := c.DeleteImage(image.Uuid)
 		if err != nil {
 			return nil, fmt.Errorf("remove image: %s, %s", image_name, err.Error())
 		}
@@ -110,7 +112,7 @@ func (c *Docker) RunNetworkMonitor(network_name string, context io.Reader, messa
 	finished_chan := make(chan struct{})
 	var fault_error error
 
-	err := c.BuildImage(
+	err = c.BuildImage(
 		context,
 		image_name,
 		func(message string) {
@@ -170,14 +172,24 @@ func (c *Docker) StopNetworkMonitor(container *types.KisaraNetworkMonitorContain
 	}
 
 	// unregister the container from the network
+	registered_networks := make([]string, 0)
 	for _, container_network := range network.Networks {
-		unregisterMonitorFromNetwork(container_network.Network.Id, container_id)
+		if unregisterMonitorFromNetwork(container_network.Network.Id, container_id) == nil {
+			registered_networks = append(registered_networks, container_network.Network.Name)
+		}
 	}
 
-	// remove the image
-	err = c.DeleteImage(container_id)
-	if err != nil {
-		return err
+	for _, network_name := range registered_networks {
+		image, err := c.GetImage(c.generateTestImageName(network_name))
+		if err != nil {
+			continue
+		}
+
+		// remove the image
+		err = c.DeleteImage(image.Uuid)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

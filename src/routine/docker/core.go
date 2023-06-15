@@ -809,8 +809,10 @@ func (c *Docker) ListImage() (*[]*kisara_types.Image, error) {
 }
 
 func (c *Docker) DeleteImage(uuid string) error {
+	log.Info("[docker] delete image: " + uuid)
 	_, err := c.Client.ImageRemove(*c.Ctx, uuid, types.ImageRemoveOptions{
-		Force: true,
+		Force:         true,
+		PruneChildren: true,
 	})
 	if err != nil {
 		return err

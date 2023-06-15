@@ -141,7 +141,7 @@ func uploadStatus() {
 		container_num = 0
 	}
 
-	log.Info("[Connection] Uploading status to server %s:%d with cpu %f%%, mem %f%%, disk %f%%, net %f%%, container_num %d", serverIp, serverPort, cpu_usage, mem_usage, disk_usage, network_usage_in, container_num)
+	//log.Info("[Connection] Uploading status to server %s:%d with cpu %f%%, mem %f%%, disk %f%%, net %f%%, container_num %d", serverIp, serverPort, cpu_usage, mem_usage, disk_usage, network_usage_in, container_num)
 
 	resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseStatus]](
 		getServerRequest(router.URI_SERVER_STATUS),

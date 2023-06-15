@@ -15,6 +15,7 @@ import (
 	"container/list"
 	"errors"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Yeuoly/kisara/src/helper"
@@ -300,4 +301,25 @@ func (c *Docker) imageHasExpired(image_id string) bool {
 	}
 
 	return record.IsExpired(IMAGE_EXPIRE_DURATION)
+}
+
+func (c *Docker) GetImage(image_name string) (*kisara_types.Image, error) {
+	images, err := c.ListImage()
+	if err != nil {
+		return nil, err
+	}
+
+	// check if image_name has tag
+	if !strings.Contains(image_name, ":") {
+		image_name += ":latest"
+	}
+
+	for _, image := range *images {
+		if image.Name == image_name {
+			v := *image
+			return &v, nil
+		}
+	}
+
+	return nil, errors.New("image not found")
 }

@@ -538,7 +538,7 @@ func HandleNetworkMonitorRun(r *gin.Context) {
 					} else {
 						request.FinishRequest(response_id, "")
 						request.FinishRequest(finsihed_response_id, jsonHelperEncoder(runNetworkMonitorResponseFormat{
-							Error:       err.Error(),
+							Error:       "",
 							Finished:    true,
 							ContainerId: container.ContainerId,
 						}))
@@ -588,7 +588,9 @@ func HandleNetworkMonitorStop(r *gin.Context) {
 				ContainerId: rc.NetworkMonitorContainerId,
 			})
 
-			resp.Error = err.Error()
+			if err != nil {
+				resp.Error = err.Error()
+			}
 
 			return types.SuccessResponse(resp)
 		}))
@@ -605,8 +607,13 @@ func HandleNetworkMonitorRunScript(r *gin.Context) {
 
 			result, err := docker.RunNetworkMonitorScript(&rc.Containers)
 
-			resp.Error = err.Error()
-			resp.Result = *result
+			if err != nil {
+				resp.Error = err.Error()
+			}
+
+			if result != nil {
+				resp.Result = *result
+			}
 
 			return types.SuccessResponse(resp)
 		}))
