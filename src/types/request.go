@@ -110,13 +110,13 @@ type RequestLaunchContainer struct {
 	// Image is the image of the container
 	Image string `json:"image" form:"image" binding:"required"`
 	// UID is the uid of the container
-	UID int `json:"uid" form:"uid" binding:"required"`
+	UID int `json:"uid" form:"uid"`
 	// PortProtocol is the port protocol of the container
-	PortProtocol string `json:"port_protocol" form:"port_protocol" binding:"required"`
+	PortProtocol string `json:"port_protocol" form:"port_protocol"`
 	// SubnetName is the subnet name of the container
 	SubnetName string `json:"subnet_name" form:"subnet_name" binding:"required"`
 	// Module is the module of the container
-	Module string `json:"module" form:"module" binding:"required"`
+	Module string `json:"module" form:"module"`
 	// EnvMount is the env mount of the container
 	EnvMount []map[string]string `json:"env_mount" form:"env_mount"`
 }

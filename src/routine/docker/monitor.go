@@ -243,7 +243,7 @@ func (c *Docker) RunNetworkMonitorScript(containers *types.KisaraNetworkTestSet)
 				})
 			}
 			wg.Done()
-		}(container.ContainerId, container.Script)
+		}(container.TestContainerId, container.Script)
 	}
 
 	wg.Wait()

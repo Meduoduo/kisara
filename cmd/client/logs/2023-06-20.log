@@ -1,0 +1,6 @@
+testcase-writeable
+testcase-writeable
+[PANIC]Read config file failed: Config File "kisara-conf" Not Found in "[/opt/go/src/kisara/cmd/client/conf]"
+testcase-writeable
+testcase-writeable
+[PANIC]Read config file failed: Config File "kisara-conf" Not Found in "[/opt/go/src/kisara/cmd/client/conf]"

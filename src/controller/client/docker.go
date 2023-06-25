@@ -314,10 +314,18 @@ func HandleInspectContainers(r *gin.Context) {
 			for _, containerID := range rc.ContainerIDs {
 				container, err := docker.InspectContainer(containerID)
 				if err != nil {
-					return types.ErrorResponse(-500, err.Error())
+					container = &types.Container{
+						Id:     containerID,
+						Status: "down",
+					}
+					continue
 				}
 				if container == nil {
-					return types.ErrorResponse(-500, "An unexpected error occurred, container is nil")
+					container = &types.Container{
+						Id:     containerID,
+						Status: "down",
+					}
+					continue
 				}
 				containers = append(containers, *container)
 			}

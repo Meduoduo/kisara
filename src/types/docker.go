@@ -33,6 +33,14 @@ type Container struct {
 	Networks []Network         `json:"networks"`
 }
 
+func (c *Container) IsRunning() bool {
+	return c.Status == "running"
+}
+
+func (c *Container) IsDown() bool {
+	return c.Status == "down"
+}
+
 type Network struct {
 	Id       string `json:"id"`
 	Subnet   string `json:"subnet"`

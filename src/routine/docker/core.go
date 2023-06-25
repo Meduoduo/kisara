@@ -719,9 +719,9 @@ func (c *Docker) ExecWarp(container_id string, cmd string, timeout time.Duration
 	var result []byte
 	last := make([]byte, 0)
 	for {
-		if len(last) > 8 {
-			length := binary.BigEndian.Uint64(last[4:8])
-			if len(last) > 8+int(length) {
+		if len(last) >= 8 {
+			length := binary.BigEndian.Uint32(last[4:8])
+			if len(last) >= 8+int(length) {
 				result = append(result, last[8:8+length]...)
 				last = last[8+length:]
 				continue
