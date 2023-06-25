@@ -209,31 +209,44 @@ func connect() {
 	}()
 
 	for {
-		resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseHeartBeat]](
-			getServerRequest(router.URI_SERVER_HEARTBEAT),
-			helper.HttpPayloadJson(types.RequestHeartBeat{
-				ClientID: clientId,
-			}),
-			helper.HttpTimeout(5000),
-		)
-		if err != nil {
-			log.Error("[Connection] Failed to send heart beat: %s", err.Error())
+		heart_beat := func() bool {
+			// send heart beat at most 3 times, if failed, reconnect
+			for i := 0; i < 3; i++ {
+				resp, err := helper.SendPostAndParse[types.KisaraResponseWrap[types.ResponseHeartBeat]](
+					getServerRequest(router.URI_SERVER_HEARTBEAT),
+					helper.HttpPayloadJson(types.RequestHeartBeat{
+						ClientID: clientId,
+					}),
+					helper.HttpTimeout(5000),
+				)
+				if err != nil {
+					log.Error("[Connection] Failed to send heart beat: %s", err.Error())
+					continue
+				}
+				if resp.Code != 0 {
+					log.Error("[Connection] Failed to send heart beat: %s", resp.Message)
+					continue
+				}
+				if resp.Data.ClientID != clientId {
+					log.Error("[Connection] Failed to send heart beat: client id is not matched")
+					continue
+				}
+				current_timestamp := time.Now().Unix()
+				if math.Abs(float64(current_timestamp-resp.Data.Timestamp)) > 90 {
+					log.Error("[Connection] Failed to send heart beat: server may be down")
+					continue
+				}
+				log.Info("[Connection] Heart beat……")
+				time.Sleep(30 * time.Second)
+
+				return true
+			}
+			return false
+		}
+
+		if !heart_beat() {
+			log.Error("[Connection] Heart beat failed, reconnecting")
 			return
 		}
-		if resp.Code != 0 {
-			log.Error("[Connection] Failed to send heart beat: %s", resp.Message)
-			return
-		}
-		if resp.Data.ClientID != clientId {
-			log.Error("[Connection] Failed to send heart beat: client id is not matched")
-			return
-		}
-		current_timestamp := time.Now().Unix()
-		if math.Abs(float64(current_timestamp-resp.Data.Timestamp)) > 90 {
-			log.Error("[Connection] Failed to send heart beat: server may be down")
-			return
-		}
-		log.Info("[Connection] Heart beat……")
-		time.Sleep(30 * time.Second)
 	}
 }
