@@ -230,10 +230,10 @@ func (c *Docker) RunNetworkMonitorScript(containers *types.KisaraNetworkTestSet)
 		}
 
 		wg.Add(1)
-		go func(container_id string, cmd string) {
+		go func(container_id string, test_container_id string, cmd string) {
 			// run the test script
 			cmd = strings.Replace(cmd, "$ip", ip, -1)
-			result, err := c.ExecWarp(container_id, cmd, time.Second*10)
+			result, err := c.ExecWarp(test_container_id, cmd, time.Second*10)
 			if err != nil {
 				errs = append(errs, err)
 			} else {
@@ -243,7 +243,7 @@ func (c *Docker) RunNetworkMonitorScript(containers *types.KisaraNetworkTestSet)
 				})
 			}
 			wg.Done()
-		}(container.TestContainerId, container.Script)
+		}(container.ContainerId, container.TestContainerId, container.Script)
 	}
 
 	wg.Wait()
