@@ -3,6 +3,9 @@ Kisara 是一个用于CTF/AWD等竞赛的Docker集群管理工具，现在尚处
 
 [README](./README.md)|[文档](./README-cn.md)
 
+## 开源协议
+Kisara使用MIT协议开源，详细请看 [LICENSE](./LICENSE)
+
 ## 为什么叫Kisara
 来自于我很喜欢的动画《契约之吻》的女主Kisara，她是一个恶魔！而我对项目的命名基本都是美少女，所以就这样了（雾
 
