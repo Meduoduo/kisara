@@ -3,6 +3,9 @@ Kisara is a Docker cluster management tool for CTF/AWD competitions, which is st
 
 [README](./README.md)|[文档](./README-cn.md)
 
+## Open source agreement
+Kisara is open source under the MIT license. You can use it for free, but you must retain the original author information and the original license agreement. If you use Kisara for commercial purposes, you must obtain the author's permission. refer to [LICENSE](./LICENSE) for details.
+
 ## Why Kisara
 Kisara comes from the name of the female protagonist Kisara from the anime "Kiss of the Rose Princess". She is a demon! And I usually name my projects after beautiful girls, so that's it. (lol)
 
